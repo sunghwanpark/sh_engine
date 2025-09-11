@@ -1,0 +1,216 @@
+﻿#pragma once
+
+#include "pch.h"
+
+inline constexpr u64 RHI_WHOLE_SIZE = ~0ull;
+
+struct alignas(16) instanceData 
+{
+    glm::mat4 model;
+    glm::mat3 normal_mat;
+};
+
+struct rhiDrawIndexedIndirect 
+{
+    u32 index_count;
+    u32 instance_count;
+    u32 first_index;
+    i32  vertex_offset;
+    u32 first_instance;
+};
+
+enum class rhiBufferUsage : u32
+{
+    vertex = 1u << 0,
+    index = 1u << 1,
+    transfer_src = 1u << 2,
+    transfer_dst = 1u << 3,
+    storage = 1u << 4,
+    uniform = 1u << 5,
+    indirect = 1u << 6,
+};
+
+inline rhiBufferUsage operator|(rhiBufferUsage a, rhiBufferUsage b) 
+{
+    return static_cast<rhiBufferUsage>(static_cast<u32>(a) | static_cast<u32>(b));
+}
+
+enum class rhiMem : u8
+{
+    auto_device,
+    auto_host,
+};
+
+enum class rhiFormat : u32
+{
+    RGBA8_UNORM,
+    RGBA8_SRGB,
+    BGRA8_UNORM,
+    BGRA8_SRGB,
+    RGBA16F,
+    RGB32_SFLOAT,
+    RGBA32_SFLOAT,
+    RG32_SFLOAT,
+    D24S8,
+    D32F,
+    D32S8
+};
+
+enum class rhiLoadOp : u8
+{
+    load, clear, dont_care
+};
+
+enum class rhiStoreOp : u8 
+{ 
+    store, dont_care 
+};
+
+enum class rhiSampleCount : u8 
+{ 
+    x1 = 1, 
+    x2 = 2, 
+    x4 = 4 
+};
+
+enum class rhiResult
+{
+    ok,
+    suboptimal,
+    out_of_date
+};
+
+enum class rhiPipelineStage : u32 
+{ 
+    none = 0,
+    top_of_pipe = 1u << 0,
+    draw_indirect = 1u << 1,
+    vertex_input = 1u << 2,
+    vertex_shader = 1u << 3,
+    fragment_shader = 1u << 4,
+    color_attachment_output = 1u << 8,
+    transfer = 1u << 9,
+    copy = 1u << 10,
+    bottom_of_pipe = 1u << 31,
+};
+
+enum class rhiShaderStage : u32
+{
+    vertex = 1u << 0,
+    fragment = 1u << 1,
+    compute = 1u << 2,
+    all = vertex | fragment | compute
+};
+
+inline rhiShaderStage operator|(rhiShaderStage a, rhiShaderStage b) 
+{
+    return static_cast<rhiShaderStage>(static_cast<u32>(a) | static_cast<u32>(b));
+}
+
+enum class rhiPipelineType 
+{ 
+    graphics, 
+    compute 
+};
+
+enum class rhiDescriptorType : u8 
+{
+    sampler,
+    sampled_image,
+    storage_image,
+    uniform_buffer,
+    uniform_buffer_dynamic,
+    storage_buffer,
+    combined_image_sampler
+};
+
+enum class rhiImageLayout : u8 
+{ 
+    undefined, 
+    shader_readonly,
+    color_attachment,
+    depth_stencil_attachment,
+    depth_readonly,
+    transfer_src,
+    transfer_dst,
+    present,
+    general,
+};
+
+enum class rhiFilter : u8 
+{
+    nearest,
+    linear 
+};
+
+enum class rhiMipmapMode : u8 
+{ 
+    nearest, 
+    linear 
+};
+
+enum class rhiAddressMode : u8 
+{ 
+    repeat, 
+    mirror, 
+    clamp_to_edge, 
+    clamp_to_border 
+};
+
+enum class rhiBorderColor : u8 
+{ 
+    transparent_black, 
+    opaque_black, 
+    opaque_white 
+};
+
+enum class rhiCompareOp : u8
+{
+    never,
+    less, 
+    equal, 
+    less_equal,
+    greater,
+    not_equal,
+    greater_equal,
+    always
+};
+
+enum class rhiImageAspect : u32
+{
+    color = 1u << 0,
+    depth = 1u << 1,
+    stencil = 1u << 2, 
+    depth_stencil = 1u << 3 
+};
+
+enum class rhiAccessFlags : u32
+{
+    indirect_command_read = 1u << 0,
+    index_read = 1u << 1,
+    vertex_attribute_read = 1u << 2,
+    uniform_read = 1u << 3,
+    shader_read = 1u << 4,
+    shader_write = 1u << 5,
+    color_attachment_read = 1u << 6,
+    color_attachment_write = 1u << 7,
+    depthstencil_attachment_read = 1u << 8,
+    depthstencil_attachment_write = 1u << 9,
+    transfer_read = 1u << 10,
+    transfer_write = 1u << 11,
+    host_read = 1u << 12,
+    host_write = 1u << 13,
+    memory_read = 1u << 14,
+    memory_write = 1u << 15,
+    shader_storage_read = 1u << 16,
+    shader_storage_write = 1u << 17,
+    draw_indirect = 1u << 18,
+};
+
+enum class rhiMipsMethod { auto_select, linear_blit, compute };
+
+enum class rhiImageViewType 
+{ 
+    type_2d, 
+    type_2darray
+};

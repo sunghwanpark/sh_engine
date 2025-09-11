@@ -1,0 +1,119 @@
+﻿#pragma once
+
+#include "pch.h"
+#include "rhi/rhiDefs.h"
+#include "renderer/renderShared.h"
+#include "renderer/shadowPass.h"
+#include "renderer/gbufferPass.h"
+#include "renderer/lightingPass.h"
+#include "renderer/compositePass.h"
+#include "textureCache.h"
+
+class scene;
+class rhiDeviceContext;
+class rhiRenderResource;
+class glTFMesh;
+class rhiBuffer;
+class rhiTexture;
+class rhiFrameContext;
+class rhiCommandList;
+class rhiBindlessTable;
+
+class renderer
+{
+public:
+	renderer();
+	~renderer();
+
+public:
+	void initialize(scene* s, rhiDeviceContext* device_context, rhiFrameContext* frame_context);
+	void pre_render(scene* s);
+	void render(scene* s);
+	void post_render();
+
+private:
+	struct drawGroupKey 
+	{
+		const rhiBuffer* vbo;
+		const rhiBuffer* ibo;
+		u32 base_color_index;
+		u32 norm_color_index;
+		u32 m_r_color_index;
+		u32 base_sam_index;
+		u32 norm_sam_index;
+		u32 m_r_sam_index;
+
+		f32 alpha_cutoff;
+		f32 metalic_factor;
+		f32 roughness_factor;
+		bool is_masked = false;
+
+		bool operator==(const drawGroupKey& o) const
+		{
+			return vbo == o.vbo
+				&& ibo == o.ibo
+				&& base_color_index == o.base_color_index
+				&& norm_color_index == o.norm_color_index
+				&& m_r_color_index == o.m_r_sam_index
+				&& base_sam_index == o.base_sam_index
+				&& norm_sam_index == o.norm_sam_index
+				&& m_r_sam_index == o.m_r_sam_index
+				&& alpha_cutoff == o.alpha_cutoff
+				&& metalic_factor == o.metalic_factor
+				&& roughness_factor == o.roughness_factor
+				&& is_masked == o.is_masked;
+		}
+	};
+	struct drawGroupKeyHash 
+	{
+		size_t operator()(const drawGroupKey& k) const noexcept 
+		{
+			size_t h = std::hash<const void*>()(k.vbo);
+			h ^= (std::hash<const void*>()(k.ibo) << 1);
+			h ^= (std::hash<u32>()(k.base_color_index) << 2);
+			h ^= (std::hash<u32>()(k.norm_color_index) << 3);
+			h ^= (std::hash<u32>()(k.m_r_color_index) << 4);
+			h ^= (std::hash<u32>()(k.base_sam_index) << 5);
+			h ^= (std::hash<u32>()(k.norm_sam_index) << 6);
+			h ^= (std::hash<u32>()(k.m_r_sam_index) << 7);
+			h ^= (std::hash<f32>()(k.alpha_cutoff) << 8);
+			h ^= (std::hash<f32>()(k.metalic_factor) << 9);
+			h ^= (std::hash<f32>()(k.roughness_factor) << 10);
+			h ^= (std::hash<bool>()(k.is_masked) << 11);
+			return h;
+		}
+	};
+	void prepare(scene* s);
+	void build(scene* s, rhiDeviceContext* context);
+	void notify_nextimage_index_to_drawpass(const u32 image_index);
+	std::shared_ptr<rhiRenderResource> get_or_create_resource(const std::shared_ptr<glTFMesh> raw_mesh);
+	void create_ringbuffer(const u32 frame_size);
+
+private:
+	std::unordered_map<u64, std::shared_ptr<rhiRenderResource>> cache;
+	std::unique_ptr<textureCache> texture_cache;
+
+	renderShared render_shared;
+	shadowPass shadow_pass;
+	gbufferPass gbuffer_pass;
+	lightingPass lighting_pass;
+	compositePass composite_pass;
+
+	// indirect cpu data
+	std::vector<instanceData> instances;
+	std::vector<rhiDrawIndexedIndirect> indirect_args;
+	std::vector<groupRecord> groups;
+
+	std::shared_ptr<rhiBuffer> instance_buffer;
+	std::shared_ptr<rhiBuffer> indirect_buffer;
+	// end indirect cpu data
+
+	// global ring buffer
+	std::vector<std::unique_ptr<rhiBuffer>> global_ringbuffer;
+
+	// actors bindless table
+	std::shared_ptr<rhiBindlessTable> bindless_table;
+
+	bool initialized = false;
+	u32vec2 framebuffer_size = { 0, 0 };
+};
