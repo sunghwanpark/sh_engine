@@ -226,7 +226,7 @@ glTFMesh::glTFMesh(const std::string_view path)
     for (auto& nd : draws)
     {
         const cgltf_primitive& prim = *nd.prim;
-
+        
         const cgltf_accessor* acc_pos = nullptr;
         const cgltf_accessor* acc_nrm = nullptr;
         const cgltf_accessor* acc_tan = nullptr;
@@ -241,7 +241,8 @@ glTFMesh::glTFMesh(const std::string_view path)
             case cgltf_attribute_type_normal:   acc_nrm = at.data; break;
             case cgltf_attribute_type_tangent: acc_tan = at.data; break;
             case cgltf_attribute_type_texcoord:
-                if (at.index < 2) acc_uv[at.index] = at.data;
+                if (at.index < 2) 
+                    acc_uv[at.index] = at.data;
                 break;
             default: break;
             }
@@ -368,7 +369,7 @@ glTFMesh::glTFMesh(const std::string_view path)
             if (acc_uv_sel)
             {
                 glm::vec2 uv = read_vec2(acc_uv_sel, vi);
-                v.uv = glm::vec2(uv.x, 1.0f - uv.y);
+                v.uv = glm::vec2(uv.x, uv.y);
             }
             else v.uv = glm::vec2(0);
 
