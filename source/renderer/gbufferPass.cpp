@@ -95,6 +95,7 @@ void gbufferPass::draw(rhiCommandList* cmd)
     for (const auto& g : *group_records)
     {
         push_constants(cmd, g);
+        //cmd->set_cullmode(double_sided_infos[g.first_cmd] ? rhiCullMode::none : rhiCullMode::back);
         cmd->bind_vertex_buffer(const_cast<rhiBuffer*>(g.vbo), 0, 0);
         cmd->bind_index_buffer(const_cast<rhiBuffer*>(g.ibo), 0);
         const u32 byte_offset = g.first_cmd * stride;
@@ -202,6 +203,7 @@ void gbufferPass::build_pipeline(renderShared* rs)
         .samples = rhiSampleCount::x1,
         .depth_test = true,
         .depth_write = true,
+        //.use_dynamic_cullmode = true,
         .vertex_layout = rhiVertexAttribute{
             .binding = 0,
             .stride = sizeof(glTFVertex),

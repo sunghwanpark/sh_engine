@@ -27,15 +27,18 @@ public:
 	std::unique_ptr<rhiBindlessTable> create_bindless_table(const rhiBindlessDesc& desc, const u32 set_index = 0) override;
 	std::unique_ptr<rhiBuffer> create_buffer(const rhiBufferDesc& desc) override;
 	std::unique_ptr<rhiTexture> create_texture(const rhiTextureDesc& desc) override;
-	std::unique_ptr<rhiTexture> create_texture_from_path(std::string_view path) override;
+	std::unique_ptr<rhiTexture> create_texture_from_path(std::string_view path, bool is_hdr = false) override;
+	std::shared_ptr<rhiTextureCubeMap> create_texture_cubemap(const rhiTextureDesc& desc) override;
 	std::unique_ptr<rhiSampler> create_sampler(const rhiSamplerDesc& desc) override;
 	std::unique_ptr<rhiSemaphore> create_semaphore() override;
 	std::unique_ptr<rhiFence> create_fence(bool signaled) override;
 
 	rhiDescriptorSetLayout create_descriptor_set_layout(const std::vector<rhiDescriptorSetLayoutBinding>& bindings, u32 set_index = 0);
-	rhiDescriptorPool create_descriptor_pool(const std::vector<rhiDescriptorPoolSize>& sizes, u32 max_sets);
+	rhiDescriptorPool create_descriptor_pool(const rhiDescriptorPoolCreateInfo& create_info, u32 max_sets);
 	std::vector<rhiDescriptorSet> allocate_descriptor_sets(rhiDescriptorPool pool, const std::vector<rhiDescriptorSetLayout>& layouts);
-	void update_descriptors(const std::vector<rhiWriteDescriptor>& writes);
+	std::vector<rhiDescriptorSet> allocate_descriptor_indexing_sets(rhiDescriptorPool pool, const std::vector<rhiDescriptorSetLayout>& layouts, const std::vector<u32>& counts);
+	void update_descriptors(const std::vector<rhiWriteDescriptor>& writes) override;
+	rhiDescriptorSetLayout create_descriptor_indexing_set_layout(const rhiDescriptorIndexing& desc, const u32 set_index) override;
 
 	rhiPipelineLayout create_pipeline_layout(std::vector<rhiDescriptorSetLayout> set_layouts, u32 push_constant_bytes, void** keep_alive_out) override;
 	std::unique_ptr<rhiPipeline> create_graphics_pipeline(const rhiGraphicsPipelineDesc& desc, const rhiPipelineLayout& layout) override;

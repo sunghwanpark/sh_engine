@@ -88,6 +88,7 @@ enum class rhiPipelineStage : u32
     vertex_input = 1u << 2,
     vertex_shader = 1u << 3,
     fragment_shader = 1u << 4,
+    compute_shader = 1u << 5,
     color_attachment_output = 1u << 8,
     transfer = 1u << 9,
     copy = 1u << 10,
@@ -133,6 +134,7 @@ enum class rhiImageLayout : u8
     depth_readonly,
     transfer_src,
     transfer_dst,
+    compute,
     present,
     general,
 };
@@ -213,4 +215,34 @@ enum class rhiImageViewType
 { 
     type_2d, 
     type_2darray
+};
+
+enum class rhiCullMode
+{
+    back,
+    front,
+    none
+};
+
+enum class rhiCubemapViewType : u8 { mip, cube };
+
+enum class rhiDescriptorBindingFlags : u16
+{
+    update_after_bind = 1u << 0,
+    update_unused_while_pending = 1u << 1,
+    partially_bound = 1u << 2,
+    variable_descriptor_count = 1u << 3,
+};
+inline rhiDescriptorBindingFlags operator|(rhiDescriptorBindingFlags a, rhiDescriptorBindingFlags b)
+{
+    return static_cast<rhiDescriptorBindingFlags>(static_cast<u16>(a) | static_cast<u16>(b));
+}
+
+enum class rhiDescriptorPoolCreateFlags : u16
+{
+    free_descriptor_set = 1u << 0,
+    update_after_bind = 1u << 1,
+    host_only = 1u << 2,
+    allow_overallocation_sets = 1u << 3,
+    allow_overallocation_pools = 1u << 4
 };

@@ -19,12 +19,7 @@ public:
     vkPipeline(VkDevice device, const rhiComputePipelineDesc& desc, rhiPipelineType t);
     virtual ~vkPipeline();
 
-    void set(VkGraphicsPipelineCreateInfo s) { info = s; }
-    void set(VkPipelineRenderingCreateInfo s) { r_info = s; }
-
     VkDevice  device;
     VkPipeline handle = VK_NULL_HANDLE;
     VkPipelineBindPoint bind_point;
-    VkPipelineRenderingCreateInfo r_info;
-    VkGraphicsPipelineCreateInfo info;
 };

@@ -51,7 +51,6 @@ private:
 	void build(scene* s, const vec2 framebuffer_size);
 	void update_globals(renderShared* rs, const u32 current_cascade);
 	void update_cascade(scene* s, const vec2 framebuffer_size);
-	void update_depth_attachment(const u32 current_cascade);
 
 private:
 	u32 cascade_count;

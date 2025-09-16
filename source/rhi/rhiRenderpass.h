@@ -23,7 +23,6 @@ struct renderTargetViewDesc
 
 struct rhiRenderingAttachment 
 {
-    std::optional<renderTargetViewDesc> rt_desc;
     std::optional<rhiRenderTargetView> view;
     rhiLoadOp load_op = rhiLoadOp::load;
     rhiStoreOp store_op = rhiStoreOp::store;

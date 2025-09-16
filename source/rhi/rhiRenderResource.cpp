@@ -131,7 +131,7 @@ void rhiRenderResource::rebuild_submeshes(textureCache* tex_cache, glTFMesh* raw
 			.alpha_cutoff = s.alpha_cutoff,
 			.metalic_factor = s.metalic_factor,
 			.roughness_factor = s.roughness_factor,
-			.is_masked = s.is_masked
+			.is_double_sided = s.is_double_sided
 			});
 	}
 }

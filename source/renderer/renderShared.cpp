@@ -14,7 +14,7 @@ renderShared::~renderShared()
     samplers.linear_clamp.reset();
     samplers.linear_wrap.reset();
     samplers.point_clamp.reset();
-    scene_color.clear();
+    scene_color.reset();
 }
 
 void renderShared::Initialize(rhiDeviceContext* context, rhiFrameContext* frame_context)
@@ -145,21 +145,19 @@ void renderShared::create_shared_samplers()
 
 void renderShared::create_scene_color()
 {
-    scene_color.resize(frame_context->get_frame_size());
     const u32 width = frame_context->swapchain->width();
     const u32 height = frame_context->swapchain->height();
-    std::ranges::for_each(scene_color, [&](std::unique_ptr<rhiTexture>& tex)
-        {
-            tex = context->create_texture(rhiTextureDesc{
-                .width = width,
-                .height = height,
-                .layers = 1,
-                .mips = 1,
-                .format = rhiFormat::RGBA8_UNORM,
-                .samples = rhiSampleCount::x1,
-                .is_depth = false
-                });
+    auto tex = context->create_texture(rhiTextureDesc{
+        .width = width,
+        .height = height,
+        .layers = 1,
+        .mips = 1,
+        .format = rhiFormat::RGBA8_UNORM,
+        .samples = rhiSampleCount::x1,
+        .is_depth = false
         });
+
+    scene_color.reset(tex.release());
 }
 
 void renderShared::create_descriptor_pools()
@@ -167,24 +165,25 @@ void renderShared::create_descriptor_pools()
     arena.pools.resize(frame_context->swapchain->get_swapchain_image_count());
     for (u32 i = 0; i < frame_context->swapchain->get_swapchain_image_count(); i++)
     {
-        arena.pools[i] = context->create_descriptor_pool(
-            {
-                {
-                    .type = rhiDescriptorType::uniform_buffer,
-                    .count = 256
-                },
-                {
-                    .type = rhiDescriptorType::sampled_image,
-                    .count = 1024
-                },
-                {
-                    .type = rhiDescriptorType::sampler,
-                    .count = 64
-                },
-                {
-                    .type = rhiDescriptorType::storage_buffer,
-                    .count = 256
-                },
+        arena.pools[i] = context->create_descriptor_pool({
+                .pool_sizes = {
+                    {
+                        .type = rhiDescriptorType::uniform_buffer,
+                        .count = 256
+                    },
+                    {
+                        .type = rhiDescriptorType::sampled_image,
+                        .count = 1024
+                    },
+                    {
+                        .type = rhiDescriptorType::sampler,
+                        .count = 64
+                    },
+                    {
+                        .type = rhiDescriptorType::storage_buffer,
+                        .count = 256
+                    } 
+                }
             }, 1024);
     }
 }

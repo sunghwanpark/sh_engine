@@ -2,8 +2,14 @@
 #include "rhi/rhiDeviceContext.h"
 #include "rhi/rhiCommandList.h"
 
-rhiTexture::rhiTexture(rhiDeviceContext* context, std::string_view path)
+rhiTexture::rhiTexture(rhiDeviceContext* context, std::string_view path, bool is_hdr)
 {
+    if (is_hdr)
+    {
+        generate_equirect(path);
+        return;
+    }
+
     i32 width = 0;
     i32 height = 0;
     i32 channels = 0;
@@ -76,4 +82,33 @@ void rhiTexture::generate_mips(rhiDeviceContext* context)
     }
     context->submit_and_wait(cmd_lst);
     stbi_image_free(pixels);
+}
+
+void rhiTexture::generate_equirect(std::string_view path)
+{
+    i32 width = 0;
+    i32 height = 0;
+    i32 channels = 0;
+    stbi_set_flip_vertically_on_load(false);
+    auto f_pixels = stbi_loadf(path.data(), &width, &height, &channels, 3);
+    if (!f_pixels)
+        throw std::runtime_error("failed to load hdr");
+
+    rgba.resize(width * height * 4);
+    for (i32 i = 0; i < width * height; ++i)
+    {
+        rgba[i * 4 + 0] = f_pixels[i * 3 + 0];
+        rgba[i * 4 + 1] = f_pixels[i * 3 + 1];
+        rgba[i * 4 + 2] = f_pixels[i * 3 + 2];
+        rgba[i * 4 + 3] = 1.f;
+    }
+
+    desc.width = static_cast<u32>(width);
+    desc.height = static_cast<u32>(height);
+    desc.layers = 1;
+    desc.mips = 1;
+    desc.format = rhiFormat::RGBA32_SFLOAT;
+    desc.samples = rhiSampleCount::x1;
+    desc.is_depth = false;
+    stbi_image_free(f_pixels);
 }

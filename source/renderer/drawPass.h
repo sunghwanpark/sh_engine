@@ -37,6 +37,7 @@ public:
     void frame(const u32 image_index);
     virtual void resize(renderShared* rs, u32 w, u32 h, u32 layers = 1);
     virtual void shutdown();
+    virtual void update(drawUpdateContext* update_context) {};
     virtual void render(renderShared* rs);
 
     const u32 get_width() const { return draw_context->w; }

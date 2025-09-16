@@ -5,6 +5,7 @@
 #include "renderer/renderShared.h"
 #include "renderer/shadowPass.h"
 #include "renderer/gbufferPass.h"
+#include "renderer/skyPass.h"
 #include "renderer/lightingPass.h"
 #include "renderer/compositePass.h"
 #include "textureCache.h"
@@ -46,7 +47,7 @@ private:
 		f32 alpha_cutoff;
 		f32 metalic_factor;
 		f32 roughness_factor;
-		bool is_masked = false;
+		bool is_double_sided = false;
 
 		bool operator==(const drawGroupKey& o) const
 		{
@@ -61,7 +62,7 @@ private:
 				&& alpha_cutoff == o.alpha_cutoff
 				&& metalic_factor == o.metalic_factor
 				&& roughness_factor == o.roughness_factor
-				&& is_masked == o.is_masked;
+				&& is_double_sided == o.is_double_sided;
 		}
 	};
 	struct drawGroupKeyHash 
@@ -79,7 +80,7 @@ private:
 			h ^= (std::hash<f32>()(k.alpha_cutoff) << 8);
 			h ^= (std::hash<f32>()(k.metalic_factor) << 9);
 			h ^= (std::hash<f32>()(k.roughness_factor) << 10);
-			h ^= (std::hash<bool>()(k.is_masked) << 11);
+			h ^= (std::hash<bool>()(k.is_double_sided) << 11);
 			return h;
 		}
 	};
@@ -96,6 +97,7 @@ private:
 	renderShared render_shared;
 	shadowPass shadow_pass;
 	gbufferPass gbuffer_pass;
+	skyPass sky_pass;
 	lightingPass lighting_pass;
 	compositePass composite_pass;
 

@@ -166,7 +166,9 @@ inline VkImageLayout vk_layout(rhiImageLayout l)
     case rhiImageLayout::transfer_src: return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     case rhiImageLayout::transfer_dst: return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     case rhiImageLayout::present: return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    case rhiImageLayout::general:return VK_IMAGE_LAYOUT_GENERAL;
+    case rhiImageLayout::compute:
+    case rhiImageLayout::general:
+        return VK_IMAGE_LAYOUT_GENERAL;
     }
     return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
@@ -353,6 +355,7 @@ inline VkPipelineStageFlags2 vk_pipeline_stage2(rhiPipelineStage stage)
     case rhiPipelineStage::vertex_input: return VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
     case rhiPipelineStage::vertex_shader: return VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
     case rhiPipelineStage::fragment_shader: return VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    case rhiPipelineStage::compute_shader: return VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     case rhiPipelineStage::color_attachment_output: return VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
     case rhiPipelineStage::transfer: return VK_PIPELINE_STAGE_2_TRANSFER_BIT;
     case rhiPipelineStage::copy: return VK_PIPELINE_STAGE_2_COPY_BIT;
@@ -402,4 +405,51 @@ inline VkAccessFlags2 vk_access_flags2(rhiAccessFlags f)
         vk_flags |= VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
 
     return vk_flags;
+}
+
+inline VkDescriptorBindingFlags vk_binding_flags(rhiDescriptorBindingFlags f)
+{
+    VkDescriptorBindingFlags vk_flags = 0;
+    if (has_<rhiDescriptorBindingFlags>(f, rhiDescriptorBindingFlags::update_after_bind))
+        vk_flags |= VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+    if (has_<rhiDescriptorBindingFlags>(f, rhiDescriptorBindingFlags::partially_bound))
+        vk_flags |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+    if (has_<rhiDescriptorBindingFlags>(f, rhiDescriptorBindingFlags::update_unused_while_pending))
+        vk_flags |= VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
+    if (has_<rhiDescriptorBindingFlags>(f, rhiDescriptorBindingFlags::variable_descriptor_count))
+        vk_flags |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
+    assert(vk_flags != 0);
+    return vk_flags;
+}
+
+inline VkShaderStageFlags vk_shader_stage(rhiShaderStage s)
+{
+    VkShaderStageFlags stage = 0;
+    if (static_cast<u32>(s) & static_cast<u32>(rhiShaderStage::all))
+    {
+        stage = VK_SHADER_STAGE_ALL;
+    }
+    else
+    {
+        if (static_cast<u32>(s) & static_cast<u32>(rhiShaderStage::vertex))
+            stage |= VK_SHADER_STAGE_VERTEX_BIT;
+        if (static_cast<u32>(s) & static_cast<u32>(rhiShaderStage::fragment))
+            stage |= VK_SHADER_STAGE_FRAGMENT_BIT;
+        if (static_cast<u32>(s) & static_cast<u32>(rhiShaderStage::compute))
+            stage |= VK_SHADER_STAGE_COMPUTE_BIT;
+    }
+    assert(stage != 0);
+    return stage;
+}
+
+inline VkDescriptorPoolCreateFlags vk_desc_pool_create_flags(rhiDescriptorPoolCreateFlags f)
+{
+    switch (f)
+    {
+    case rhiDescriptorPoolCreateFlags::free_descriptor_set: return VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    case rhiDescriptorPoolCreateFlags::update_after_bind: return VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+    case rhiDescriptorPoolCreateFlags::host_only: return VK_DESCRIPTOR_POOL_CREATE_HOST_ONLY_BIT_EXT;
+    }
+    assert(false);
+    return VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 }

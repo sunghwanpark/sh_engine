@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "pch.h"
 #include "rhi/rhiDefs.h"
+#include "rhi/rhiDescriptor.h"
 
 class rhiTexture;
 class rhiSampler;
@@ -8,7 +9,6 @@ class rhiDeviceContext;
 class rhiFrameContext;
 class rhiBuffer;
 class rhiCommandList;
-struct rhiDescriptorPool;
 
 struct sharedSamplers
 {
@@ -26,8 +26,10 @@ public:
 
 struct alignas(16) globalsCB
 {
-    mat4 view;
-    mat4 proj;
+    mat4 view; // 64
+    mat4 proj; // 64
+    mat4 inv_view_proj; // 64
+    vec4 cam_pos; // 16 (w = padding)
 };
 
 struct groupRecord
@@ -76,7 +78,7 @@ public:
     sharedSamplers samplers;
     descriptorArena arena;
 
-    std::vector<std::unique_ptr<rhiTexture>> scene_color;
+    std::shared_ptr<rhiTexture> scene_color;
     std::vector<std::unique_ptr<rhiBuffer>> pending_staging_buffers;
 };
 

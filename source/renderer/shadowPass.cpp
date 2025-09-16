@@ -334,25 +334,6 @@ void shadowPass::update_globals(renderShared* rs, const u32 current_cascade)
 	rs->context->update_descriptors({ write_desc });
 }
 
-void shadowPass::update_depth_attachment(const u32 current_cascade)
-{
-	const renderTargetViewDesc desc{
-			.tex = shadow_depth.get(),
-			.format = rhiFormat::D32F,
-			.aspect = rhiImageAspect::depth,
-			.mip = 0,
-			.base_layer = current_cascade,
-			.layer_count = 1
-	};
-	rhiRenderingAttachment depth_attachment;
-	depth_attachment.rt_desc = desc;
-	depth_attachment.load_op = rhiLoadOp::clear;
-	depth_attachment.store_op = rhiStoreOp::store;
-	depth_attachment.clear.depth = 1.0f;
-	depth_attachment.clear.stencil = 0;
-	render_info.depth_attachment = depth_attachment;
-}
-
 void shadowPass::render(renderShared* rs)
 {
 	auto& current_frame = rs->frame_context->get(image_index.value());

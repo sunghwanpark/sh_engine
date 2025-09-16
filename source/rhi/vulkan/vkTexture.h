@@ -9,7 +9,7 @@ class vkTexture final : public rhiTexture
 {
 public:
 	vkTexture(vkDeviceContext* context, const rhiTextureDesc& desc, bool external_image = false);
-	vkTexture(vkDeviceContext* context, std::string_view path);
+	vkTexture(vkDeviceContext* context, std::string_view path, bool is_hdr = false);
 	virtual ~vkTexture();
 
 public:
@@ -20,6 +20,9 @@ public:
 	VkImageView get_depth_view() const { assert(depth_view != VK_NULL_HANDLE); return depth_view; }
 	VkImageView get_layer_view(const u32 idx) const;
 	bool is_depth() const;
+
+private:
+	void upload(vkDeviceContext* context);
 
 private:
 	VkDevice device;

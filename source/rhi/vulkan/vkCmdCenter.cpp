@@ -297,7 +297,10 @@ bool vkCmdCenter::create_logical_device()
         .ppEnabledExtensionNames = device_extension_names.data(),
         .pEnabledFeatures = &device_features,
     };
-    
+
+    VkPhysicalDeviceExtendedDynamicStateFeaturesEXT dys_feature{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT
+    };
     VkPhysicalDeviceVulkan11Features v11{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES
     };
@@ -307,11 +310,12 @@ bool vkCmdCenter::create_logical_device()
     VkPhysicalDeviceVulkan13Features v13{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
     };
+    dys_feature.pNext = &v11;
     v11.pNext = &v12;
     v12.pNext = &v13;
     VkPhysicalDeviceFeatures2 device_features2{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-        .pNext = &v11
+        .pNext = &dys_feature
     };
     vkGetPhysicalDeviceFeatures2(vk_context->phys_device, &device_features2);
     v13.dynamicRendering = VK_TRUE;
@@ -329,6 +333,7 @@ bool vkCmdCenter::create_logical_device()
     v12.descriptorBindingUniformTexelBufferUpdateAfterBind = VK_TRUE;
     v12.descriptorBindingStorageTexelBufferUpdateAfterBind = VK_TRUE;
     v11.shaderDrawParameters = VK_TRUE;
+    dys_feature.extendedDynamicState = VK_TRUE;
 
     device_create_info.pEnabledFeatures = nullptr;
     device_create_info.pNext = &device_features2;

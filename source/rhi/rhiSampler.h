@@ -14,17 +14,17 @@ struct rhiSamplerDesc
     rhiAddressMode address_v = rhiAddressMode::clamp_to_edge;
     rhiAddressMode address_w = rhiAddressMode::clamp_to_edge;
 
-    float mip_lodbias = 0.0f;
-    float min_lod = 0.0f;
-    float max_lod = 1000.0f;
+    f32 mip_lodbias = 0.0f;
+    f32 min_lod = 0.0f;
+    f32 max_lod = 1000.0f;
 
     bool enable_anisotropy = false;
-    float max_anisotropy = 1.0f;
+    f32 max_anisotropy = 1.0f;
 
     bool enable_compare = false;
     rhiCompareOp compare_op = rhiCompareOp::less_equal;
 
-    rhiBorderColor border = rhiBorderColor::opaque_black;
+    rhiBorderColor border = rhiBorderColor::opaque_white;
     bool unnormalized_coords = false;
 };
 

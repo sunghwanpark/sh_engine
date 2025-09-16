@@ -1,6 +1,7 @@
 ﻿#include "vkDeviceContext.h"
 #include "vkCommon.h"
 #include "vkTexture.h"
+#include "vkTextureCubemap.h"
 #include "vkBuffer.h"
 #include "vkSampler.h"
 #include "vkSynchronize.h"
@@ -126,7 +127,6 @@ namespace
             // rasterizerDiscardEnable가 VK_TRUE면 VkPipelineRenderingCreateInfo의 depth format이 늘 UNDEFINED가 되어버린다.
             .rasterizerDiscardEnable = desc.fs.has_value() ? VK_FALSE : VK_TRUE,
             .polygonMode = VK_POLYGON_MODE_FILL,
-            //.cullMode = VK_CULL_MODE_BACK_BIT,
             .cullMode = VK_CULL_MODE_NONE,
             .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
             .lineWidth = 1.f,
@@ -154,12 +154,19 @@ namespace
             .pAttachments = color_blend_attachments.data()
         };
 
-        const std::array<VkDynamicState,2> dyn_states = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
-        const VkPipelineDynamicStateCreateInfo dyn_state{
-            .sType =VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-            .dynamicStateCount = 2,
-            .pDynamicStates = dyn_states.data()
-        };
+        VkPipelineDynamicStateCreateInfo dyn_state{ VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
+        if (desc.use_dynamic_cullmode)
+        {
+            const std::array<VkDynamicState, 3> dyn_states = { VK_DYNAMIC_STATE_CULL_MODE_EXT, VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+            dyn_state.dynamicStateCount = 3;
+            dyn_state.pDynamicStates = dyn_states.data();
+        }
+        else
+        {
+            const std::array<VkDynamicState, 2> dyn_states = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+            dyn_state.dynamicStateCount = 2;
+            dyn_state.pDynamicStates = dyn_states.data();
+        }
 
         // dynamic rendering - pipeline format hint
         std::vector<VkFormat> color_formats;
@@ -199,8 +206,6 @@ namespace
         if(fs != VK_NULL_HANDLE)
             vkDestroyShaderModule(device, fs, nullptr);
 
-        p->set(pipeline_create_info);
-        p->set(render_create_info);
         return p;
     }
 
@@ -260,9 +265,14 @@ std::unique_ptr<rhiTexture> vkDeviceContext::create_texture(const rhiTextureDesc
     return std::make_unique<vkTexture>(this, desc);
 }
 
-std::unique_ptr<rhiTexture> vkDeviceContext::create_texture_from_path(std::string_view path)
+std::unique_ptr<rhiTexture> vkDeviceContext::create_texture_from_path(std::string_view path, bool is_hdr)
 {
-    return std::make_unique<vkTexture>(this, path);
+    return std::make_unique<vkTexture>(this, path, is_hdr);
+}
+
+std::shared_ptr<rhiTextureCubeMap> vkDeviceContext::create_texture_cubemap(const rhiTextureDesc& desc)
+{
+    return std::make_unique<vkTextureCubemap>(this, desc);
 }
 
 std::unique_ptr<rhiSampler> vkDeviceContext::create_sampler(const rhiSamplerDesc& desc)
@@ -323,11 +333,11 @@ rhiDescriptorSetLayout vkDeviceContext::create_descriptor_set_layout(const std::
     return rhi_layout;
 }
 
-rhiDescriptorPool vkDeviceContext::create_descriptor_pool(const std::vector<rhiDescriptorPoolSize>& sizes, u32 max_sets)
+rhiDescriptorPool vkDeviceContext::create_descriptor_pool(const rhiDescriptorPoolCreateInfo& create_info, u32 max_sets)
 {
     std::vector<VkDescriptorPoolSize> ps;
-    ps.reserve(sizes.size());
-    for (auto& s : sizes) 
+    ps.reserve(create_info.pool_sizes.size());
+    for (auto& s : create_info.pool_sizes)
     {
         ps.push_back(
             {
@@ -340,7 +350,7 @@ rhiDescriptorPool vkDeviceContext::create_descriptor_pool(const std::vector<rhiD
     VkDescriptorPoolCreateInfo ci
     {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+        .flags = vk_desc_pool_create_flags(create_info.create_flags),
         .maxSets = max_sets,
         .poolSizeCount = static_cast<u32>(ps.size()),
         .pPoolSizes = ps.data(),
@@ -393,6 +403,57 @@ std::vector<rhiDescriptorSet> vkDeviceContext::allocate_descriptor_sets(rhiDescr
             .native = sets[index],
             .set_index = layouts[index].set_index
         });
+    }
+    return result;
+}
+
+std::vector<rhiDescriptorSet> vkDeviceContext::allocate_descriptor_indexing_sets(rhiDescriptorPool pool, const std::vector<rhiDescriptorSetLayout>& layouts, const std::vector<u32>& counts)
+{
+    auto vk_pool = reinterpret_cast<VkDescriptorPool>(pool.native);
+    if (!vk_pool)
+    {
+        assert(false);
+        return {};
+    }
+    std::vector<VkDescriptorSetLayout> vk_layouts;
+    vk_layouts.reserve(layouts.size());
+    for (const rhiDescriptorSetLayout& layout : layouts)
+    {
+        auto vk_layout = reinterpret_cast<VkDescriptorSetLayout>(layout.native);
+        if (!vk_layout)
+        {
+            assert(false);
+            continue;
+        }
+        vk_layouts.push_back(vk_layout);
+    }
+
+    const VkDescriptorSetVariableDescriptorCountAllocateInfo count_info{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO,
+        .descriptorSetCount = static_cast<u32>(counts.size()),
+        .pDescriptorCounts = counts.data()
+    };
+
+    std::vector<VkDescriptorSet> sets(layouts.size(), VK_NULL_HANDLE);
+    const VkDescriptorSetAllocateInfo alloc_info
+    {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = &count_info,
+        .descriptorPool = vk_pool,
+        .descriptorSetCount = static_cast<u32>(vk_layouts.size()),
+        .pSetLayouts = vk_layouts.data()
+    };
+    VK_CHECK_ERROR(vkAllocateDescriptorSets(device, &alloc_info, sets.data()));
+
+    std::vector<rhiDescriptorSet> result;
+    result.reserve(sets.size());
+    for (u32 index = 0; index < sets.size(); ++index)
+    {
+        result.push_back(
+            {
+                .native = sets[index],
+                .set_index = layouts[index].set_index
+            });
     }
     return result;
 }
@@ -450,7 +511,6 @@ void vkDeviceContext::update_descriptors(const std::vector<rhiWriteDescriptor>& 
             for (u32 index = 0; index < n; ++index)
             {
                 const rhiDescriptorImageInfo& img = write.image[index];
-                auto vk_tex = static_cast<vkTexture*>(img.texture);
                 VkDescriptorImageInfo img_info{};
                 if (write.type == rhiDescriptorType::sampler)
                 {
@@ -462,14 +522,28 @@ void vkDeviceContext::update_descriptors(const std::vector<rhiWriteDescriptor>& 
                     || write.type == rhiDescriptorType::storage_image)
                 {
                     img_info.sampler = VK_NULL_HANDLE;
-                    if (img.is_separate_depth_view)
-                        img_info.imageView = vk_tex->get_depth_view();
-                    else
-                        img_info.imageView = vk_tex->get_view();
+                    if (img.texture)
+                    {
+                        auto vk_tex = static_cast<vkTexture*>(img.texture);
+                        if (img.is_separate_depth_view)
+                            img_info.imageView = vk_tex->get_depth_view();
+                        else
+                            img_info.imageView = vk_tex->get_view();
+                    }
+                    else if (img.texture_cubemap)
+                    {
+                        auto vk_tex_cube = static_cast<vkTextureCubemap*>(img.texture_cubemap);
+                        if (img.cubemap_viewtype == rhiCubemapViewType::mip)
+                            img_info.imageView = vk_tex_cube->get_mip_view(img.mip);
+                        else
+                            img_info.imageView = vk_tex_cube->get_cube_view();
+                    }
+                    
                     img_info.imageLayout = vk_layout(img.layout);
                 }
                 else if (write.type == rhiDescriptorType::combined_image_sampler)
                 {
+                    auto vk_tex = static_cast<vkTexture*>(img.texture);
                     img_info.sampler = get_vk_sampler(img.sampler);
                     img_info.imageView = vk_tex->get_view();
                     img_info.imageLayout = vk_layout(img.layout);
@@ -617,4 +691,51 @@ void vkDeviceContext::init_after_createdevice(VkInstance instance, VkQueue graph
         .instance = instance,
     };
     VK_CHECK_ERROR(vmaCreateAllocator(&vma_alloc_crate_info, &allocator));
+}
+
+rhiDescriptorSetLayout vkDeviceContext::create_descriptor_indexing_set_layout(const rhiDescriptorIndexing& desc, const u32 set_index)
+{
+    std::vector<VkDescriptorSetLayoutBinding> binding_layouts;
+    std::vector<VkDescriptorBindingFlags> binding_flags;
+    binding_layouts.reserve(desc.elements.size());
+    binding_flags.reserve(desc.elements.size());
+    for (const auto& d : desc.elements)
+    {
+        const VkDescriptorSetLayoutBinding b{
+            .binding = d.binding,
+            .descriptorType = vk_desc_type(d.type),
+            .descriptorCount = d.descriptor_count,
+            .stageFlags = vk_shader_stage(d.stage)
+        };
+        binding_layouts.push_back(b);
+
+        const VkDescriptorBindingFlags flags = vk_binding_flags(d.binding_flags);
+        binding_flags.push_back(flags);
+    }
+
+    const VkDescriptorSetLayoutBindingFlagsCreateInfo flags_createinfo{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+        .bindingCount = static_cast<u32>(binding_flags.size()),
+        .pBindingFlags = binding_flags.data()
+    };
+    const VkDescriptorSetLayoutCreateInfo layout_createinfo{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = &flags_createinfo,
+        .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
+        .bindingCount = static_cast<u32>(binding_layouts.size()),
+        .pBindings = binding_layouts.data(),
+    };
+    VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
+    VK_CHECK_ERROR(vkCreateDescriptorSetLayout(device, &layout_createinfo, nullptr, &set_layout));
+
+    auto holder = std::make_shared<vkDescriptorSetLayoutHolder>(device);
+    holder->layout = set_layout;
+    holder->bindings = std::move(binding_layouts);
+
+    rhiDescriptorSetLayout rhi_layout;
+    rhi_layout.native = holder->layout;
+    rhi_layout.set_index = set_index;
+    kept_descriptor_layouts.push_back(std::move(holder));
+
+    return rhi_layout;
 }

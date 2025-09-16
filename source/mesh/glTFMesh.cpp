@@ -288,14 +288,13 @@ glTFMesh::glTFMesh(const std::string_view path)
                 // todo
             }
             if (prim.material->alpha_mode == cgltf_alpha_mode_mask)
-            {
-                sm.is_masked = true;
                 sm.alpha_cutoff = prim.material->alpha_cutoff;
-            }
             if (pbr.metallic_factor > 0.f)
                 sm.metalic_factor = pbr.metallic_factor;
             if (pbr.roughness_factor > 0.f)
                 sm.roughness_factor = pbr.roughness_factor;
+            if (prim.material->double_sided > 0)
+                sm.is_double_sided = true;
 
             if (bc.texture && bc.texture->image && bc.texture->image->uri)
                 base_path = baseDir + bc.texture->image->uri;

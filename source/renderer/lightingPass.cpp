@@ -135,7 +135,7 @@ void lightingPass::build_attachments(rhiDeviceContext* context)
 	render_info.depth_format = std::nullopt;
 	
 	render_info.color_attachments.resize(1);
-	render_info.color_attachments[0].load_op = rhiLoadOp::clear;
+	render_info.color_attachments[0].load_op = rhiLoadOp::load;
 	render_info.color_attachments[0].store_op = rhiStoreOp::store;
 	render_info.color_attachments[0].clear = { {0,0,0,1},1.0f,0 };
 }
@@ -300,15 +300,7 @@ void lightingPass::update_descriptors(renderShared* rs)
 
 void lightingPass::begin_barrier(rhiCommandList* cmd)
 {
-	if (is_first_frame)
-	{
-		cmd->image_barrier(scene_color, rhiImageLayout::undefined, rhiImageLayout::color_attachment);
-		is_first_frame = false;
-	}
-	else
-	{
-		cmd->image_barrier(scene_color, rhiImageLayout::shader_readonly, rhiImageLayout::color_attachment);
-	}
+	cmd->image_barrier(scene_color, rhiImageLayout::color_attachment, rhiImageLayout::color_attachment);
 }
 
 void lightingPass::end_barrier(rhiCommandList* cmd)

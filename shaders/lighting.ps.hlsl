@@ -196,10 +196,7 @@ psOut main(psIn i)
 
     float depth01 = depth.Sample(shadow_sampler, i.uv);
     if (depth01 >= 1.0)
-    {
-        o.scene_color = 0.f;
-        return o;
-    }
+        discard;
 
     // world position
     float3 pos_w = reconstruct_world_pos(i.uv, depth01);

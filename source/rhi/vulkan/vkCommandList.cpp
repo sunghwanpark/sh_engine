@@ -2,6 +2,7 @@
 #include "vkCommon.h"
 #include "vkDeviceContext.h"
 #include "vkImageViewCache.h"
+#include "vkTextureCubemap.h"
 #include "vkPipeline.h"
 #include "vkBarrier.h"
 #include "rhi/rhiPipeline.h"
@@ -72,11 +73,7 @@ void vkCommandList::begin_render_pass(const rhiRenderingInfo& info)
 		};
 
         VkRenderingAttachmentInfo color_attchment_info{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
-        if (color_info.rt_desc.has_value())
-            color_attchment_info.imageView = ptr->get(&color_info.rt_desc.value());
-        else
-            color_attchment_info.imageView = ptr->get_or_create(&color_info.view.value());
-         
+        color_attchment_info.imageView = ptr->get_or_create(&color_info.view.value());
         color_attchment_info.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         color_attchment_info.loadOp = vk_load_op(color_info.load_op);
         color_attchment_info.storeOp = vk_store_op(color_info.store_op);
@@ -272,7 +269,6 @@ void vkCommandList::generate_mips(rhiTexture* tex, const rhiGenMipsDesc& desc)
             mip_height = dst_extent.height;
         }
     }
-
     image_barrier(tex, rhiImageLayout::transfer_src, rhiImageLayout::shader_readonly, desc.base_mip, mip_count, desc.base_layer, layer_count);
 }
 
@@ -319,6 +315,51 @@ void vkCommandList::image_barrier(rhiTexture* tex, rhiImageLayout old_layout, rh
     };
 
     const VkDependencyInfo dependency{ 
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &barrier
+    };
+    vkCmdPipelineBarrier2(cmd_buffer, &dependency);
+}
+
+void vkCommandList::image_barrier(rhiTextureCubeMap* tex, rhiImageLayout old_layout, rhiImageLayout new_layout, u32 base_mip, u32 level_count, u32 base_layer, u32 layer_count, bool is_same_stage)
+{
+    assert(cmd_buffer != VK_NULL_HANDLE);
+    auto vk_tex = static_cast<vkTextureCubemap*>(tex);
+
+    if (level_count == 0)
+        level_count = tex->desc.mips;
+    if (layer_count == 0)
+        layer_count = tex->desc.layers;
+
+    auto src = vk_stage_access(old_layout);
+    auto dst = vk_stage_access(new_layout);
+    if (is_same_stage)
+    {
+        src.stage = dst.stage;
+    }
+
+    const VkImageMemoryBarrier2 barrier{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+        .srcStageMask = src.stage,
+        .srcAccessMask = src.access,
+        .dstStageMask = dst.stage,
+        .dstAccessMask = dst.access,
+        .oldLayout = vk_layout(old_layout),
+        .newLayout = vk_layout(new_layout),
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = vk_tex->get_image(),
+        .subresourceRange = {
+            .aspectMask = vk_aspect_from_format(vk_tex->desc.format),
+            .baseMipLevel = base_mip,
+            .levelCount = level_count,
+            .baseArrayLayer = base_layer,
+            .layerCount = layer_count
+        }
+    };
+
+    const VkDependencyInfo dependency{
         .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
         .imageMemoryBarrierCount = 1,
         .pImageMemoryBarriers = &barrier
@@ -410,6 +451,18 @@ void vkCommandList::push_constants(const rhiPipelineLayout layout, rhiShaderStag
     }
 
     vkCmdPushConstants(cmd_buffer, get_vk_pipeline_layout(layout), stage, offset, size, data);
+}
+
+void vkCommandList::set_cullmode(const rhiCullMode cull_mode)
+{
+    assert(cmd_buffer != VK_NULL_HANDLE);
+    VkCullModeFlags flag = VK_CULL_MODE_NONE;
+    switch (cull_mode)
+    {
+    case rhiCullMode::back: flag = VK_CULL_MODE_BACK_BIT; break;
+    case rhiCullMode::front: flag = VK_CULL_MODE_FRONT_BIT; break;
+    }
+    vkCmdSetCullMode(cmd_buffer, flag);
 }
 
 void vkCommandList::draw_indexed_indirect(rhiBuffer* indirect_buffer, const u32 offset, const u32 draw_count, const u32 stride)

@@ -51,7 +51,7 @@ psOut main(psIn i)
     // albedo
     uint b_idx = NonUniformResourceIndex(materials.base_color_index);
     uint b_s_idx = NonUniformResourceIndex(materials.base_sampler_index);
-    float4 albedo = textures[b_idx].Sample(samplers[b_s_idx], i.uv, 0.0f);
+    float4 albedo = textures[b_idx].Sample(samplers[b_s_idx], i.uv);
 
     if (materials.alpha_cutoff > 0.f && albedo.a < materials.alpha_cutoff)
         discard;

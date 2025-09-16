@@ -44,7 +44,8 @@ vkTexture::vkTexture(vkDeviceContext* context, const rhiTextureDesc& desc, bool 
                 .image = image,
                 .format = format,
                 .aspect = vk_aspect_from_format(desc.format),
-                .mip = 0, // todo. 
+                .base_mip = 0,
+                .mip_count = desc.mips,
                 .base_layer = 0,
                 .layer_count = desc.layers
             };
@@ -55,7 +56,8 @@ vkTexture::vkTexture(vkDeviceContext* context, const rhiTextureDesc& desc, bool 
                     .image = image,
                     .format = format,
                     .aspect = VK_IMAGE_ASPECT_DEPTH_BIT,
-                    .mip = 0,
+                    .base_mip = 0,
+                    .mip_count = desc.mips,
                     .base_layer = 0,
                     .layer_count = desc.layers
                 };
@@ -70,7 +72,8 @@ vkTexture::vkTexture(vkDeviceContext* context, const rhiTextureDesc& desc, bool 
                         .image = image,
                         .format = format,
                         .aspect = vk_aspect_from_format(desc.format),
-                        .mip = 0,
+                        .base_mip = 0,
+                        .mip_count = desc.mips,
                         .base_layer = index,
                         .layer_count = 1
                     };
@@ -81,8 +84,8 @@ vkTexture::vkTexture(vkDeviceContext* context, const rhiTextureDesc& desc, bool 
     }
 }
 
-vkTexture::vkTexture(vkDeviceContext* context, std::string_view path)
-    : rhiTexture(context, path),
+vkTexture::vkTexture(vkDeviceContext* context, std::string_view path, bool is_hdr)
+    : rhiTexture(context, path, is_hdr),
     device(context->device),
     allocator(context->allocator),
     allocation(VK_NULL_HANDLE),
@@ -109,19 +112,24 @@ vkTexture::vkTexture(vkDeviceContext* context, std::string_view path)
     };
     VK_CHECK_ERROR(vmaCreateImage(context->allocator, &image_create_info, &vma_create_info, &image, &allocation, nullptr));
 
+    if(is_hdr)
+        upload(context);
+
     if (const auto ptr = imgview_cache.lock())
     {
         const viewKey key{
             .image = image,
             .format = format,
             .aspect = vk_aspect_from_format(desc.format),
-            .mip = 0, // todo. 
+            .base_mip = 0,
+            .mip_count = desc.mips,
             .base_layer = 0,
             .layer_count = desc.layers
         };
         view = ptr->get_or_create(key);
     }
-    generate_mips(context);
+    if(!is_hdr)
+        generate_mips(context);
 }
 
 vkTexture::~vkTexture()
@@ -157,7 +165,8 @@ void vkTexture::bind_external_image(VkImage image)
             .image = image,
             .format = format,
             .aspect = vk_aspect_from_format(desc.format),
-            .mip = 0, // todo. 
+            .base_mip = 0,
+            .mip_count = desc.mips,
             .base_layer = 0,
             .layer_count = desc.layers
         };
@@ -169,4 +178,36 @@ VkImageView vkTexture::get_layer_view(const u32 idx) const
 { 
     assert(idx < layer_views.size());
     return layer_views[idx]; 
+}
+
+void vkTexture::upload(vkDeviceContext* context)
+{
+    auto cmd = context->begin_onetime_commands();
+    assert(cmd);
+
+    cmd->image_barrier(this, rhiImageLayout::undefined, rhiImageLayout::transfer_dst);
+    const u32 bytes = desc.width * desc.height * 4 * sizeof(f32);
+    auto staging = context->create_buffer(rhiBufferDesc{
+        .size = bytes,
+        .usage = rhiBufferUsage::transfer_src,
+        .memory = rhiMem::auto_host
+        });
+    auto mapped = staging->map();
+    std::memcpy(mapped, rgba.data(), bytes);
+    staging->flush(0, bytes);
+    staging->unmap();
+    std::vector<rhiBufferImageCopy> regions = {
+        rhiBufferImageCopy{
+            .buffer_offset = 0,
+            .buffer_rowlength = 0,
+            .buffer_imageheight = 0,
+            .imageSubresource = rhiImageSubresourceLayers{
+                .aspect = rhiImageAspect::color
+                },
+            .image_offset = {0,0,0},
+            .image_extent = { desc.width, desc.height, 1.f },
+        } };
+    cmd->copy_buffer_to_image(staging.get(), this, rhiImageLayout::transfer_dst, regions);
+    cmd->image_barrier(this, rhiImageLayout::transfer_dst, rhiImageLayout::shader_readonly);
+    context->submit_and_wait(cmd);
 }

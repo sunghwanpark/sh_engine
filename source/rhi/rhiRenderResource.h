@@ -38,7 +38,7 @@ public:
         f32 metalic_factor;
         f32 roughness_factor;
 
-        bool is_masked;
+        bool is_double_sided;
     };
 
 public:

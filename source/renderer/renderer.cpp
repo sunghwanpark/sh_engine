@@ -49,6 +49,15 @@ void renderer::initialize(scene* s, rhiDeviceContext* device_context, rhiFrameCo
         ctx.bindless_table = bindless_table;
         gbuffer_pass.initialize(ctx);
     }
+
+    {
+        skyInitContext ctx{};
+        ctx.rs = &render_shared;
+        ctx.w = width;
+        ctx.h = height;
+        ctx.scene_color = render_shared.scene_color;
+        sky_pass.initialize(ctx);
+    }
     
     {
         shadowInitContext ctx{};
@@ -123,7 +132,9 @@ void renderer::render(scene* s)
         globalsCB cb;
         cb.view = s->get_camera()->view();
         cb.proj = s->get_camera()->proj(framebuffer_size);
-        cmd_list->buffer_barrier(global_ringbuffer[img_index].get(), rhiPipelineStage::vertex_shader, rhiPipelineStage::copy, rhiAccessFlags::uniform_read, rhiAccessFlags::transfer_write, 0, sizeof(globalsCB));
+        cb.inv_view_proj = glm::inverse(cb.proj * cb.view);
+        cb.cam_pos = vec4(s->get_camera()->get_position(), 0.f);
+        cmd_list->buffer_barrier(global_ringbuffer[img_index].get(), rhiPipelineStage::fragment_shader, rhiPipelineStage::copy, rhiAccessFlags::uniform_read, rhiAccessFlags::transfer_write, 0, sizeof(globalsCB));
         render_shared.upload_to_device(cmd_list, global_ringbuffer[img_index].get(), &cb, sizeof(globalsCB));
         cmd_list->buffer_barrier(global_ringbuffer[img_index].get(), rhiPipelineStage::copy, rhiPipelineStage::vertex_shader, rhiAccessFlags::transfer_write, rhiAccessFlags::uniform_read, 0, sizeof(globalsCB));
     }
@@ -139,11 +150,19 @@ void renderer::render(scene* s)
         gbuffer_pass.update(&render_shared, global_ringbuffer[img_index].get(), instance_buffer.get());
         gbuffer_pass.render(&render_shared);
     }
+    
+    // sky pass
+    {
+        cmd_list->buffer_barrier(global_ringbuffer[img_index].get(), rhiPipelineStage::vertex_shader, rhiPipelineStage::fragment_shader, rhiAccessFlags::uniform_read, rhiAccessFlags::uniform_read, 0, sizeof(globalsCB));
+        std::unique_ptr<skyUpdateContext> context = std::make_unique<skyUpdateContext>(global_ringbuffer[img_index].get());
+        sky_pass.update(context.get());
+        sky_pass.render(&render_shared);
+    }
 
     // lighting pass
     {
         lightingPass::context ctx{
-            .scene_color = render_shared.scene_color[img_index].get(),
+            .scene_color = render_shared.scene_color.get(),
             .gbuf_a = gbuffer_pass.get_gbuffer_a(),
             .gbuf_b = gbuffer_pass.get_gbuffer_b(),
             .gbuf_c = gbuffer_pass.get_gbuffer_c(),
@@ -168,7 +187,7 @@ void renderer::render(scene* s)
 
     // composite
     {
-        composite_pass.update(&render_shared, render_shared.scene_color[img_index].get());
+        composite_pass.update(&render_shared, render_shared.scene_color.get());
         composite_pass.render(&render_shared);
         cmd_list->end();
     }
@@ -225,6 +244,7 @@ void renderer::build(scene* s, rhiDeviceContext* context)
     indirect_args.clear();
     groups.clear();
     std::unordered_map<drawGroupKey, std::vector<rhiDrawIndexedIndirect>, drawGroupKeyHash> map;
+    std::unordered_map<u32, bool> double_sided;
 
     for (auto& a : s->get_actors())
     {
@@ -283,7 +303,7 @@ void renderer::build(scene* s, rhiDeviceContext* context)
                 .alpha_cutoff = mat.alpha_cutoff,
                 .metalic_factor = mat.metalic_factor,
                 .roughness_factor = mat.roughness_factor,
-                .is_masked = mat.is_masked
+                .is_double_sided = mat.is_double_sided
             };
 
             const rhiDrawIndexedIndirect indirect_cmd
@@ -322,6 +342,7 @@ void renderer::build(scene* s, rhiDeviceContext* context)
 
         groups.push_back(group_record);
         indirect_args.insert(indirect_args.end(), cmds.begin(), cmds.end());
+        double_sided.emplace(running, key.is_double_sided);
         running += group_record.cmd_count;
     }
 
@@ -350,6 +371,7 @@ void renderer::build(scene* s, rhiDeviceContext* context)
 
     shadow_pass.update_elements(&groups, instance_buffer, indirect_buffer);
     gbuffer_pass.update_elements(&groups, instance_buffer, indirect_buffer);
+    gbuffer_pass.update_double_sided_info(double_sided);
 }
 
 void renderer::create_ringbuffer(const u32 frame_size)
@@ -365,6 +387,7 @@ void renderer::notify_nextimage_index_to_drawpass(const u32 image_index)
 {
     shadow_pass.frame(image_index);
     gbuffer_pass.frame(image_index);
+    sky_pass.frame(image_index);
     lighting_pass.frame(image_index);
     composite_pass.frame(image_index);
 }

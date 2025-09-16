@@ -35,7 +35,9 @@ struct rhiTextureDesc
 {
     u32 width = 1;
     u32 height = 1;
+    u32 base_layer = 0;
     u32 layers = 1;
+    u32 base_mip = 0;
     u32 mips = 1;
     rhiFormat format = rhiFormat::RGBA8_UNORM;
     rhiSampleCount samples = rhiSampleCount::x1;
@@ -47,17 +49,31 @@ class rhiTexture
 {
 public:
     rhiTexture(const rhiTextureDesc& desc) : desc(desc) {}
-    rhiTexture(class rhiDeviceContext* context, std::string_view path);
+    rhiTexture(class rhiDeviceContext* context, std::string_view path, bool is_hdr = false);
     virtual ~rhiTexture() = default;
 
 protected:
     void generate_mips(rhiDeviceContext* context);
 
+private:
+    void generate_equirect(std::string_view path);
+
 public:
     rhiTextureDesc desc;
 
 protected:
-    stbi_uc* pixels;
+    stbi_uc* pixels = nullptr;
+    std::vector<f32> rgba;
+};
+
+class rhiTextureCubeMap
+{
+public:
+    rhiTextureCubeMap(const rhiTextureDesc& desc) : desc(desc) {}
+    virtual ~rhiTextureCubeMap() = default;
+
+public:
+    rhiTextureDesc desc;
 };
 
 struct rhiRenderTargetView 

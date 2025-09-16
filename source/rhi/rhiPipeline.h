@@ -34,6 +34,8 @@ struct rhiGraphicsPipelineDesc
 
     bool depth_test = true;
     bool depth_write = true;
+    bool use_dynamic_cullmode = false;
+
     rhiVertexAttribute vertex_layout;
     // todo
     // blend / raster

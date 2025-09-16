@@ -9,9 +9,11 @@ struct viewKey
     VkImage image;
     VkFormat format;
     VkImageAspectFlags aspect;
-    u32 mip;
+    u32 base_mip;
+    u32 mip_count;
     u32 base_layer;
     u32 layer_count;
+    bool is_cubemap = false;
 
     bool operator==(const viewKey& o) const noexcept;
 };
@@ -30,7 +32,6 @@ public:
     void clear();
     VkImageView get_or_create(const rhiRenderTargetView* view);
     VkImageView get_or_create(const viewKey& key, const VkComponentMapping* swizzle = nullptr);
-    VkImageView get(const renderTargetViewDesc* desc);
 
     void delete_imageview(VkImage image);
 
