@@ -63,8 +63,11 @@ psOut main(psIn i)
     nrm = normalize(nrm);
 
     // tbn view
-    float3x3 tbn_w = float3x3(normalize(i.t), normalize(i.b), normalize(i.n));
-    float3 n_w = normalize(mul(tbn_w, nrm));
+    float3 t = normalize(i.t);
+    float3 b = normalize(i.b);
+    float3 n = normalize(i.n);
+    //float3x3 tbn_w = float3x3(normalize(i.t), normalize(i.b), normalize(i.n));
+    float3 n_w = normalize(t * nrm.x + b * nrm.y + n * nrm.z);
 
     // metalic / roughness
     uint mr_idx = NonUniformResourceIndex(materials.mr_color_index);

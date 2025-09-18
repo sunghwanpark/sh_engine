@@ -3,18 +3,20 @@
 #include "rhi/rhiDeviceContext.h"
 #include "util/hash.h"
 
-std::shared_ptr<rhiTexture> textureCache::get_or_create(std::string_view path)
+std::shared_ptr<rhiTexture> textureCache::get_or_create(std::string_view path, bool srgb)
 {
 	if (path.empty())
 		return {};
 
-	if (textures.contains(path))
-		return textures[path];
+	auto& cache = srgb ? srgb_textures : linear_textures;
+	std::string key(path);
+	if (auto it = cache.find(key); it != cache.end())
+		return it->second;
 
-	auto texture = context->create_texture_from_path(path);
+	auto texture = context->create_texture_from_path(path, false, srgb);
 	std::shared_ptr<rhiTexture> sp = std::move(texture);
-	textures.emplace(path, sp);
-	return textures[path];
+	cache.emplace(std::move(key), sp);
+	return sp;
 }
 
 std::shared_ptr<rhiSampler> textureCache::get_or_create(const rhiSamplerDesc& desc)
@@ -31,6 +33,7 @@ std::shared_ptr<rhiSampler> textureCache::get_or_create(const rhiSamplerDesc& de
 
 void textureCache::clear()
 {
-	textures.clear();
+	srgb_textures.clear();
+	linear_textures.clear();
 	samplers.clear();
 }

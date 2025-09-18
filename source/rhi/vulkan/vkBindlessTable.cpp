@@ -44,7 +44,7 @@ vkBindlessTable::vkBindlessTable(vkDeviceContext* context, const rhiBindlessDesc
     const std::array<VkDescriptorPoolSize, 2> pool_sizes = {
         VkDescriptorPoolSize{
             .type = VK_DESCRIPTOR_TYPE_SAMPLER,
-            .descriptorCount = 1
+            .descriptorCount = desc.max_samplers
         },
         VkDescriptorPoolSize{
             .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 
@@ -114,7 +114,7 @@ void vkBindlessTable::create_sampler(rhiSampler* sampler)
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = set,
         .dstBinding = 0,
-        .dstArrayElement = 0,
+        .dstArrayElement = next_sampler,
         .descriptorCount = 1,
         .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
         .pImageInfo = &info

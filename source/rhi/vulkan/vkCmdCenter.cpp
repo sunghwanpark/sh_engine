@@ -332,6 +332,7 @@ bool vkCmdCenter::create_logical_device()
     v12.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
     v12.descriptorBindingUniformTexelBufferUpdateAfterBind = VK_TRUE;
     v12.descriptorBindingStorageTexelBufferUpdateAfterBind = VK_TRUE;
+    v12.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
     v11.shaderDrawParameters = VK_TRUE;
     dys_feature.extendedDynamicState = VK_TRUE;
 

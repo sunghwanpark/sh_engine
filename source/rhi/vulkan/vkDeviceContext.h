@@ -27,7 +27,7 @@ public:
 	std::unique_ptr<rhiBindlessTable> create_bindless_table(const rhiBindlessDesc& desc, const u32 set_index = 0) override;
 	std::unique_ptr<rhiBuffer> create_buffer(const rhiBufferDesc& desc) override;
 	std::unique_ptr<rhiTexture> create_texture(const rhiTextureDesc& desc) override;
-	std::unique_ptr<rhiTexture> create_texture_from_path(std::string_view path, bool is_hdr = false) override;
+	std::unique_ptr<rhiTexture> create_texture_from_path(std::string_view path, bool is_hdr = false, bool srgb = true) override;
 	std::shared_ptr<rhiTextureCubeMap> create_texture_cubemap(const rhiTextureDesc& desc) override;
 	std::unique_ptr<rhiSampler> create_sampler(const rhiSamplerDesc& desc) override;
 	std::unique_ptr<rhiSemaphore> create_semaphore() override;

@@ -2,7 +2,7 @@
 #include "rhi/rhiDeviceContext.h"
 #include "rhi/rhiCommandList.h"
 
-rhiTexture::rhiTexture(rhiDeviceContext* context, std::string_view path, bool is_hdr)
+rhiTexture::rhiTexture(rhiDeviceContext* context, std::string_view path, bool is_hdr, bool srgb)
 {
     if (is_hdr)
     {
@@ -29,8 +29,9 @@ rhiTexture::rhiTexture(rhiDeviceContext* context, std::string_view path, bool is
     desc.height = static_cast<u32>(height);
     desc.layers = 1;
     desc.mips = calc_mip_count(width, height);
-    desc.format = rhiFormat::RGBA8_SRGB;
+    desc.format = srgb ? rhiFormat::RGBA8_SRGB : rhiFormat::RGBA8_UNORM;
     desc.samples = rhiSampleCount::x1;
+    desc.usage = rhiTextureUsage::from_file;
     desc.is_depth = false;
 }
 
@@ -109,6 +110,7 @@ void rhiTexture::generate_equirect(std::string_view path)
     desc.mips = 1;
     desc.format = rhiFormat::RGBA32_SFLOAT;
     desc.samples = rhiSampleCount::x1;
+    desc.usage = rhiTextureUsage::from_file;
     desc.is_depth = false;
     stbi_image_free(f_pixels);
 }

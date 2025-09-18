@@ -44,6 +44,7 @@ void gbufferPass::initialize(const drawInitContext& context)
         .mips = 1,
         .format = rhiFormat::D32S8,
         .samples = rhiSampleCount::x1,
+        .usage = rhiTextureUsage::ds,
         .is_depth = true,
         .is_separate_depth_stencil = true
     };

@@ -19,7 +19,7 @@ public:
     virtual std::unique_ptr<rhiBindlessTable> create_bindless_table(const rhiBindlessDesc& desc, const u32 set_index = 0) = 0;
     virtual std::unique_ptr<rhiBuffer> create_buffer(const rhiBufferDesc& desc) = 0;
     virtual std::unique_ptr<rhiTexture> create_texture(const rhiTextureDesc& desc) = 0;
-    virtual std::unique_ptr<rhiTexture> create_texture_from_path(std::string_view path, bool is_hdr = false) = 0;
+    virtual std::unique_ptr<rhiTexture> create_texture_from_path(std::string_view path, bool is_hdr = false, bool srgb = true) = 0;
     virtual std::shared_ptr<rhiTextureCubeMap> create_texture_cubemap(const rhiTextureDesc& desc) = 0;
     virtual std::unique_ptr<rhiSampler> create_sampler(const rhiSamplerDesc& desc) = 0;
     virtual std::unique_ptr<rhiSemaphore> create_semaphore() = 0;

@@ -19,6 +19,7 @@ vkTexture::vkTexture(vkDeviceContext* context, const rhiTextureDesc& desc, bool 
 
     if (!external)
     {
+        const VkImageUsageFlags img_usage = vk_image_usage(desc.usage);
         const VkImageCreateInfo image_create_info{
             .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
             .imageType = VK_IMAGE_TYPE_2D,
@@ -28,8 +29,7 @@ vkTexture::vkTexture(vkDeviceContext* context, const rhiTextureDesc& desc, bool 
             .arrayLayers = desc.layers,
             .samples = vk_sample(desc.samples),
             .tiling = VK_IMAGE_TILING_OPTIMAL,
-            .usage = desc.is_depth ? static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT) :
-                                                static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT),
+            .usage = img_usage,
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
         };
@@ -84,8 +84,8 @@ vkTexture::vkTexture(vkDeviceContext* context, const rhiTextureDesc& desc, bool 
     }
 }
 
-vkTexture::vkTexture(vkDeviceContext* context, std::string_view path, bool is_hdr)
-    : rhiTexture(context, path, is_hdr),
+vkTexture::vkTexture(vkDeviceContext* context, std::string_view path, bool is_hdr, bool srgb)
+    : rhiTexture(context, path, is_hdr, srgb),
     device(context->device),
     allocator(context->allocator),
     allocation(VK_NULL_HANDLE),
@@ -93,7 +93,7 @@ vkTexture::vkTexture(vkDeviceContext* context, std::string_view path, bool is_hd
     imgview_cache(context->get_imageview_cache())
 {
     format = vk_format(desc.format);
-
+    const VkImageUsageFlags img_usage = vk_image_usage(desc.usage);
     const VkImageCreateInfo image_create_info{
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
@@ -103,7 +103,7 @@ vkTexture::vkTexture(vkDeviceContext* context, std::string_view path, bool is_hd
         .arrayLayers = desc.layers,
         .samples = vk_sample(desc.samples),
         .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .usage = static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT),
+        .usage = img_usage,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
     };

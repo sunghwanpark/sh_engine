@@ -265,9 +265,9 @@ std::unique_ptr<rhiTexture> vkDeviceContext::create_texture(const rhiTextureDesc
     return std::make_unique<vkTexture>(this, desc);
 }
 
-std::unique_ptr<rhiTexture> vkDeviceContext::create_texture_from_path(std::string_view path, bool is_hdr)
+std::unique_ptr<rhiTexture> vkDeviceContext::create_texture_from_path(std::string_view path, bool is_hdr, bool srgb)
 {
-    return std::make_unique<vkTexture>(this, path, is_hdr);
+    return std::make_unique<vkTexture>(this, path, is_hdr, srgb);
 }
 
 std::shared_ptr<rhiTextureCubeMap> vkDeviceContext::create_texture_cubemap(const rhiTextureDesc& desc)

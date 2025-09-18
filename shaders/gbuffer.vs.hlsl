@@ -36,7 +36,10 @@ vsOut main(vsIn i, uint instId : SV_InstanceID)
     float3 n_w = normalize(mul(instances[instId].normal_mat, i.normal));
     float3 t_w = normalize(mul(instances[instId].normal_mat, i.tangent.xyz));
     t_w = normalize(t_w - n_w * dot(n_w, t_w));
-    float3 b_w = normalize(cross(n_w, t_w) * i.tangent.w);
+
+    float3x3 model3x3 = (float3x3)instances[instId].model;
+    float handed = (determinant(model3x3) < 0.0f) ? -1.0f : 1.0f;
+    float3 b_w = normalize(cross(n_w, t_w) * (i.tangent.w * handed));
 
     o.n = n_w;
     o.t = t_w;

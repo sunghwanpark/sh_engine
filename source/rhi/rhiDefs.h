@@ -50,6 +50,7 @@ enum class rhiFormat : u32
     RGBA16F,
     RGB32_SFLOAT,
     RGBA32_SFLOAT,
+    RG16_SFLOAT,
     RG32_SFLOAT,
     D24S8,
     D32F,
@@ -246,3 +247,23 @@ enum class rhiDescriptorPoolCreateFlags : u16
     allow_overallocation_sets = 1u << 3,
     allow_overallocation_pools = 1u << 4
 };
+
+enum class rhiTextureUsage : u32
+{
+    transfer_src = 1u << 0,
+    transfer_dst = 1u << 1,
+    sampled = 1u << 2,
+    storage = 1u << 3,
+    color_attachment = 1u << 4,
+    depth_stencil = 1u << 5,
+    transient_attachment = 1u << 6,
+    input_attachment = 1u << 7,
+
+    normal = color_attachment | sampled,
+    ds = depth_stencil | sampled,
+    from_file = sampled | transfer_dst | transfer_src
+};
+inline rhiTextureUsage operator|(rhiTextureUsage a, rhiTextureUsage b)
+{
+    return static_cast<rhiTextureUsage>(static_cast<u32>(a) | static_cast<u32>(b));
+}

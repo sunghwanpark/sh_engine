@@ -3,23 +3,27 @@
 #include "vkTexture.h"
 #include "rhi/rhiTextureView.h"
 #include "rhi/rhiRenderpass.h"
+#include "util/hash.h"
 
 bool viewKey::operator==(const viewKey& o) const noexcept
 {
 	return image == o.image && format == o.format && aspect == o.aspect &&
         base_mip == o.base_mip && mip_count == o.mip_count && base_layer == o.base_layer &&
-        layer_count == o.layer_count && is_cubemap && o.is_cubemap;
+        layer_count == o.layer_count && is_cubemap == o.is_cubemap;
 }
 
 size_t viewKeyHash::operator()(const viewKey& k) const noexcept
 {
-    size_t h = std::hash<u64>()((u64)k.image);
-    h ^= std::hash<u64>()(((u64)k.format << 32) | k.aspect) + 0x9e3779b9 + (h << 6) + (h >> 2);
-    h ^= std::hash<u32>()(k.base_mip) + 0x9e3779b9 + (h << 6) + (h >> 2);
-    h ^= std::hash<u32>()(k.mip_count) + 0x9e3779b9 + (h << 6) + (h >> 2);
-    h ^= std::hash<u32>()(k.base_layer) + 0x9e3779b9 + (h << 6) + (h >> 2);
-    h ^= std::hash<u32>()(k.layer_count) + 0x9e3779b9 + (h << 6) + (h >> 2);
-    h ^= std::hash<bool>()(k.is_cubemap) + 0x9e3779b9 + (h << 6) + (h >> 2);
+    u64 h = 1469598103934665603ull;
+    auto img = static_cast<u64>(reinterpret_cast<u64>(k.image));
+    h = hash_combine(h, img);
+    h = hash_combine(h, static_cast<u64>(k.format));
+    h = hash_combine(h, static_cast<u64>(k.aspect));
+    h = hash_combine(h, k.base_mip);
+    h = hash_combine(h, k.mip_count);
+    h = hash_combine(h, k.base_layer);
+    h = hash_combine(h, k.layer_count);
+    h = hash_combine(h, k.is_cubemap);
     return h;
 }
 

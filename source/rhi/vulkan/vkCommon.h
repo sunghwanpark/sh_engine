@@ -146,6 +146,7 @@ inline VkFormat vk_format(rhiFormat f)
     case rhiFormat::BGRA8_UNORM: return VK_FORMAT_B8G8R8A8_UNORM;
     case rhiFormat::RGB32_SFLOAT: return VK_FORMAT_R32G32B32_SFLOAT;
     case rhiFormat::RGBA32_SFLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
+    case rhiFormat::RG16_SFLOAT: return VK_FORMAT_R16G16_SFLOAT;
     case rhiFormat::RG32_SFLOAT: return VK_FORMAT_R32G32_SFLOAT;
     case rhiFormat::D24S8: return VK_FORMAT_D24_UNORM_S8_UINT;
     case rhiFormat::D32F: return VK_FORMAT_D32_SFLOAT;
@@ -452,4 +453,27 @@ inline VkDescriptorPoolCreateFlags vk_desc_pool_create_flags(rhiDescriptorPoolCr
     }
     assert(false);
     return VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+}
+
+inline VkImageUsageFlags vk_image_usage(rhiTextureUsage u)
+{
+    VkImageUsageFlags vk_flags = 0;
+    if (has_<rhiTextureUsage>(u, rhiTextureUsage::transfer_dst))
+        vk_flags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    if (has_<rhiTextureUsage>(u, rhiTextureUsage::transfer_src))
+        vk_flags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    if (has_<rhiTextureUsage>(u, rhiTextureUsage::color_attachment))
+        vk_flags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    if (has_<rhiTextureUsage>(u, rhiTextureUsage::depth_stencil))
+        vk_flags |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    if (has_<rhiTextureUsage>(u, rhiTextureUsage::storage))
+        vk_flags |= VK_IMAGE_USAGE_STORAGE_BIT;
+    if (has_<rhiTextureUsage>(u, rhiTextureUsage::sampled))
+        vk_flags |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    if (has_<rhiTextureUsage>(u, rhiTextureUsage::transient_attachment))
+        vk_flags |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+    if (has_<rhiTextureUsage>(u, rhiTextureUsage::input_attachment))
+        vk_flags |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+    assert(vk_flags != 0);
+    return vk_flags;
 }

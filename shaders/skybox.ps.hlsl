@@ -19,11 +19,10 @@ SamplerState linear_sampler : register(s2, space0);
 
 float4 main(psIn i) : SV_Target0
 {
-    float4 clip = float4(i.uv, 1.0, 1.0);
-
-    float4 world_h = mul(inv_view_proj, clip);
-    world_h /= world_h.w;
-    float3 dir  = normalize(world_h.xyz - cam_pos);
+    float2 ndc = float2(i.uv.x * 2.0 - 1.0, 1.0 - i.uv.y * 2.0);
+    float3 view_dir = normalize(float3(ndc, 1.0));
+    float3x3 inv_view_rot = transpose((float3x3)view);
+    float3 dir  = normalize(mul(inv_view_rot, view_dir));
     float3 hdr = cube_map.SampleLevel(linear_sampler, dir, 0).rgb;
     return float4(hdr, 1.0);
 }

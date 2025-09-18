@@ -41,6 +41,7 @@ struct rhiTextureDesc
     u32 mips = 1;
     rhiFormat format = rhiFormat::RGBA8_UNORM;
     rhiSampleCount samples = rhiSampleCount::x1;
+    rhiTextureUsage usage = rhiTextureUsage::normal;
     bool is_depth = false;
     bool is_separate_depth_stencil = false;
 };
@@ -49,7 +50,7 @@ class rhiTexture
 {
 public:
     rhiTexture(const rhiTextureDesc& desc) : desc(desc) {}
-    rhiTexture(class rhiDeviceContext* context, std::string_view path, bool is_hdr = false);
+    rhiTexture(class rhiDeviceContext* context, std::string_view path, bool is_hdr = false, bool srgb = true);
     virtual ~rhiTexture() = default;
 
 protected:

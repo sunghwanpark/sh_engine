@@ -39,6 +39,6 @@ private:
 
 	const f32 sensitivity = 0.1f;
 	const f32 znear = 0.1f;
-	const f32 zfar = 200.0f;
+	const f32 zfar = 300.0f;
 	f64vec2 last_mouse_pos;
 };

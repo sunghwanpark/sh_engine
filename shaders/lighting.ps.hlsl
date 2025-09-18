@@ -3,7 +3,6 @@
 // todo
 #define SHADOW_USE_HARD 0
 #define SHADOW_MAP_CASCADE_COUNT 4
-static const float AMBIENT = 0.1;
 
 struct psIn
 {
@@ -36,14 +35,26 @@ cbuffer light : register(b1, space0)
     float4x4 light_viewproj[SHADOW_MAP_CASCADE_COUNT];
 };
 
-Texture2D<float4> albedo : register(t2, space0);
-Texture2D<float4> normal : register(t3, space0);
-Texture2D<float4> metalic_roughness : register(t4, space0);
-Texture2D<float> depth : register(t5, space0);
-SamplerState linear_sampler : register(s6, space0);
+cbuffer ibl_param : register(b2, space0)
+{
+    float ibl_intensity_diffuse;
+    float ibl_intensity_specular;
+    float specular_mip_count;
+    float _pad;
+};
 
-Texture2DArray<float> shadows : register(t7, space0);
-SamplerState shadow_sampler : register(s8, space0);
+Texture2D<float4> albedo : register(t3, space0);
+Texture2D<float4> normal : register(t4, space0);
+Texture2D<float4> metalic_roughness : register(t5, space0);
+Texture2D<float> depth : register(t6, space0);
+SamplerState linear_sampler : register(s7, space0);
+
+Texture2DArray<float> shadows : register(t8, space0);
+SamplerState shadow_sampler : register(s9, space0);
+
+TextureCube<float4> ibl_irradiance : register(t10, space0);
+TextureCube<float4> ibl_specular : register(t11, space0);
+Texture2D<float4> ibl_brdf_lut : register(t12, space0);
 
 float3 load_world_normal(float2 uv)
 {
@@ -177,6 +188,11 @@ float3 F_Schlick(float3 f0, float voh)
     return f0 + (1.0 - f0) * f;
 }
 
+float3 F_schlick_roughness(float3 f0, float nov, float roughness)
+{
+    return f0 + (max(1.0 - roughness, f0) - f0) * pow(1.0 - nov, 5.0);
+}
+
 psOut main(psIn i)
 {
     psOut o;
@@ -204,7 +220,6 @@ psOut main(psIn i)
 
     // select cascade
     float view_z = get_view_z(i.uv, depth01);
-    //float dist = abs(view_z);
     float view_z_n = saturate((-view_z - near_far.x) / (near_far.y - near_far.x));
     uint ci = select_cascade(view_z_n);
     float shadow = sample_shadow_withblend(pos_w, view_z_n, ci);
@@ -228,14 +243,28 @@ psOut main(psIn i)
     float vis = V_SmithGGX(nov, nol, a);
     float3 f = F_Schlick(f0, voh);
 
-    float3 specular = (d * vis) * f;
-    float3 fresnel_coeff = (1.0f - f) * (1.0f - metalic);
-    float3 diffuse = fresnel_coeff * base_color / PI;
+    float3 specular_direct = (d * vis) * f;
+    float3 kd_direct = (1.0f - f) * (1.0f - metalic);
+    float3 diffuse_direct = kd_direct * base_color / PI;
+    float3 direct = (diffuse_direct + specular_direct) * nol * shadow;
 
-    float3 direct = (diffuse + specular) * nol * shadow;
-    float3 ambient = AMBIENT * base_color;
-
-    float3 color = ambient + direct;
+    // IBL
+    // diffuse IBL : irradiance * kd * base_color
+    float3 kd_ibl = (1.0f - F_schlick_roughness(f0, nov, roughness)) * (1.0f - metalic);
+    float3 irradiance = ibl_irradiance.Sample(linear_sampler, n).rgb;
+    float3 diffuse_ibl = irradiance * kd_ibl * base_color * ibl_intensity_diffuse;
+    
+    // specular IBL & BRDF LUT
+    float3 r = normalize(reflect(-v, n));
+    float mip = roughness * max(specular_mip_count - 1.0f, 0.0f);
+    float3 prefiltered = ibl_specular.SampleLevel(linear_sampler, r, mip).rgb;
+    
+    float2 brdf = ibl_brdf_lut.Sample(linear_sampler, float2(nov, roughness)).rg;
+    float3 f_ibl = F_schlick_roughness(f0, nov, roughness);
+    float3 specular_ibl = prefiltered * (f_ibl * brdf.x + brdf.y) * ibl_intensity_specular;
+    
+    // finalize
+    float3 color = direct + diffuse_ibl + specular_ibl;
     o.scene_color = float4(max(color, 0.f), 1.f);
     return o;
 }

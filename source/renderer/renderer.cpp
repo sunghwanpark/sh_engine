@@ -161,13 +161,16 @@ void renderer::render(scene* s)
 
     // lighting pass
     {
-        lightingPass::context ctx{
+        lightingPass::textureContext ctx{
             .scene_color = render_shared.scene_color.get(),
             .gbuf_a = gbuffer_pass.get_gbuffer_a(),
             .gbuf_b = gbuffer_pass.get_gbuffer_b(),
             .gbuf_c = gbuffer_pass.get_gbuffer_c(),
             .depth = gbuffer_pass.get_depth(),
-            .shadows = shadow_pass.get_shadow_texture()
+            .shadows = shadow_pass.get_shadow_texture(),
+            .ibl_irradiance = sky_pass.get_irradiance_map(),
+            .ibl_specular = sky_pass.get_specular_map(),
+            .ibl_brdf_lut = sky_pass.get_brdf_lut_map()
         };
         lighting_pass.link_textures(ctx);
         lighting_pass.update(
@@ -176,7 +179,8 @@ void renderer::render(scene* s)
             s->get_directional_light()->get_direction(),
             shadow_pass.get_light_viewproj(),
             shadow_pass.get_cascade_splits(),
-            shadow_pass.get_width());
+            shadow_pass.get_width(),
+            sky_pass.get_cubemap_mip_count());
         lighting_pass.render(&render_shared);
     }
 

@@ -27,7 +27,15 @@ public:
         mat4 light_viewproj[4];
     };
 
-    struct context
+    struct alignas(16) iblParams
+    {
+        f32 ibl_intensity_diffuse = 1.f;
+        f32 ibl_intensity_specular = 1.f;
+        f32 specular_mip_count;
+        f32 _pad;
+    };
+
+    struct textureContext
     {
         rhiTexture* scene_color;
         rhiTexture* gbuf_a;
@@ -35,6 +43,9 @@ public:
         rhiTexture* gbuf_c;
         rhiTexture* depth;
         rhiTexture* shadows;
+        rhiTextureCubeMap* ibl_irradiance;
+        rhiTextureCubeMap* ibl_specular;
+        rhiTexture* ibl_brdf_lut;
     };
 
 public:
@@ -44,8 +55,8 @@ public:
     void draw(rhiCommandList* cmd) override;
 
 public:
-    void link_textures(context& context);
-    void update(renderShared* rs, rhiCommandList* cmd, camera* camera, const vec3& light_dir, const std::vector<mat4>& light_viewprojs, const std::vector<f32>& cascade_splits, const u32 shadow_resolution);
+    void link_textures(textureContext& context);
+    void update(renderShared* rs, rhiCommandList* cmd, camera* camera, const vec3& light_dir, const std::vector<mat4>& light_viewprojs, const std::vector<f32>& cascade_splits, const u32 shadow_resolution, const u32 cubemap_mipcount);
 
 protected:
     void build_layouts(renderShared* rs) override;
@@ -53,22 +64,18 @@ protected:
     void build_pipeline(renderShared* rs) override;
 
 private:
-    void update_cbuffers(renderShared* rs, rhiCommandList* cmd, camera* camera, const vec3& light_dir, const std::vector<mat4>& light_viewprojs, const std::vector<f32>& cascade_splits, const u32 shadow_resolution);
+    void update_cbuffers(renderShared* rs, rhiCommandList* cmd, camera* camera, const vec3& light_dir, const std::vector<mat4>& light_viewprojs, const std::vector<f32>& cascade_splits, const u32 shadow_resolution, const u32 cubemap_mipcount);
     void update_descriptors(renderShared* rs);
 
 private:
     rhiDescriptorSetLayout set_fragment_layout;
     
     // reference ptr
-	rhiTexture* scene_color;
-    rhiTexture* gbuf_a;
-    rhiTexture* gbuf_b;
-    rhiTexture* gbuf_c;
-    rhiTexture* depth;
-    rhiTexture* shadows;
+    textureContext texture_context;
     //
 
     std::vector<std::unique_ptr<rhiBuffer>> camera_cbuffer;
     std::vector<std::unique_ptr<rhiBuffer>> light_cbuffer;
+    std::vector<std::unique_ptr<rhiBuffer>> ibl_param_cbuffer;
     bool is_first_frame = true;
 };

@@ -9,7 +9,7 @@ class vkTexture final : public rhiTexture
 {
 public:
 	vkTexture(vkDeviceContext* context, const rhiTextureDesc& desc, bool external_image = false);
-	vkTexture(vkDeviceContext* context, std::string_view path, bool is_hdr = false);
+	vkTexture(vkDeviceContext* context, std::string_view path, bool is_hdr = false, bool srgb = true);
 	virtual ~vkTexture();
 
 public:

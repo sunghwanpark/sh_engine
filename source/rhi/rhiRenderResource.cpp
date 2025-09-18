@@ -122,9 +122,9 @@ void rhiRenderResource::rebuild_submeshes(textureCache* tex_cache, glTFMesh* raw
 			});
 		
 		materials.push_back(material{
-			.base_color = tex_cache->get_or_create(s.base_tex),
-			.norm_color = tex_cache->get_or_create(s.normal_tex),
-			.m_r_color = tex_cache->get_or_create(s.metalic_roughness_tex),
+			.base_color = tex_cache->get_or_create(s.base_tex, true),
+			.norm_color = tex_cache->get_or_create(s.normal_tex, false),
+			.m_r_color = tex_cache->get_or_create(s.metalic_roughness_tex, false),
 			.base_sampler = tex_cache->get_or_create(get_sampler_desc(s.base_sampler)),
 			.norm_sampler = tex_cache->get_or_create(get_sampler_desc(s.norm_sampler)),
 			.m_r_sampler = tex_cache->get_or_create(get_sampler_desc(s.m_r_sampler)),

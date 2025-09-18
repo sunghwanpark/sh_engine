@@ -55,7 +55,7 @@ private:
 				&& ibo == o.ibo
 				&& base_color_index == o.base_color_index
 				&& norm_color_index == o.norm_color_index
-				&& m_r_color_index == o.m_r_sam_index
+				&& m_r_color_index == o.m_r_color_index
 				&& base_sam_index == o.base_sam_index
 				&& norm_sam_index == o.norm_sam_index
 				&& m_r_sam_index == o.m_r_sam_index

@@ -32,6 +32,7 @@ void shadowPass::initialize(const drawInitContext& context)
 		.mips = 1,
 		.format = rhiFormat::D32F,
 		.samples = rhiSampleCount::x1,
+		.usage = rhiTextureUsage::ds,
 		.is_depth = true
 	};
 	{
