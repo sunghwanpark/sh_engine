@@ -350,22 +350,33 @@ inline VkPipelineStageFlags vk_pipeline_stage(rhiPipelineStage stage)
 
 inline VkPipelineStageFlags2 vk_pipeline_stage2(rhiPipelineStage stage)
 {
-    switch (stage)
-    {
-    case rhiPipelineStage::top_of_pipe: return VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
-    case rhiPipelineStage::draw_indirect: return VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
-    case rhiPipelineStage::vertex_input: return VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
-    case rhiPipelineStage::vertex_shader: return VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-    case rhiPipelineStage::fragment_shader: return VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-    case rhiPipelineStage::compute_shader: return VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    case rhiPipelineStage::color_attachment_output: return VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-    case rhiPipelineStage::transfer: return VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-    case rhiPipelineStage::copy: return VK_PIPELINE_STAGE_2_COPY_BIT;
-    case rhiPipelineStage::bottom_of_pipe: return VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
-    case rhiPipelineStage::all_graphics: return VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
-    case rhiPipelineStage::all_commands: return VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-    }
-    return VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+    VkPipelineStageFlags2 vk_flags = VK_PIPELINE_STAGE_2_NONE;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::top_of_pipe))
+        vk_flags |= VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::draw_indirect))
+        vk_flags |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::vertex_input))
+        vk_flags |= VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::vertex_shader))
+        vk_flags |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::fragment_shader))
+        vk_flags |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::compute_shader))
+        vk_flags |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::color_attachment_output))
+        vk_flags |= VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::transfer))
+        vk_flags |= VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::copy))
+        vk_flags |= VK_PIPELINE_STAGE_2_COPY_BIT;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::bottom_of_pipe))
+        vk_flags |= VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::all_graphics))
+        vk_flags |= VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::all_commands))
+        vk_flags |= VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+
+    return vk_flags;    
 }
 
 inline VkAccessFlags2 vk_access_flags2(rhiAccessFlags f)

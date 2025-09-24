@@ -129,6 +129,14 @@ void renderer::render(scene* s)
         sky_pass.precompile_dispatch();
         prepare(s);
         build(s, device_context);
+        render_shared.image_barrier(frame_context->swapchain->views()[img_index].texture, rhiImageBarrierDescription{
+            .src_stage = rhiPipelineStage::color_attachment_output,
+            .dst_stage = rhiPipelineStage::none,
+            .src_access = rhiAccessFlags::color_attachment_write,
+            .dst_access = rhiAccessFlags::none,
+            .old_layout = rhiImageLayout::undefined,
+            .new_layout = rhiImageLayout::present,
+            });
     }
     else
     {
@@ -141,23 +149,23 @@ void renderer::render(scene* s)
             cb.cam_pos = vec4(s->get_camera()->get_position(), 0.f);
 
             render_shared.buffer_barrier(global_ringbuffer[img_index].get(), rhiBufferBarrierDescription{
-                .src_stage = rhiPipelineStage::fragment_shader,
+                .src_stage = rhiPipelineStage::vertex_shader | rhiPipelineStage::fragment_shader,
                 .dst_stage = rhiPipelineStage::copy,
                 .src_access = rhiAccessFlags::uniform_read,
                 .dst_access = rhiAccessFlags::transfer_write,
                 .size = sizeof(globalsCB),
-                .src_queue = device_context->get_queue_family_index(rhiQueueType::graphics),
-                .dst_queue = device_context->get_queue_family_index(rhiQueueType::transfer)
+                .src_queue = device_context->get_queue_family_index(rhiQueueType::transfer),
+                .dst_queue = device_context->get_queue_family_index(rhiQueueType::graphics)
                 });
             render_shared.upload_to_device(global_ringbuffer[img_index].get(), &cb, sizeof(globalsCB));
             render_shared.buffer_barrier(global_ringbuffer[img_index].get(), rhiBufferBarrierDescription{
                 .src_stage = rhiPipelineStage::copy,
-                .dst_stage = rhiPipelineStage::vertex_shader,
+                .dst_stage = rhiPipelineStage::vertex_shader | rhiPipelineStage::fragment_shader,
                 .src_access = rhiAccessFlags::transfer_write,
                 .dst_access = rhiAccessFlags::uniform_read,
                 .size = sizeof(globalsCB),
-                .src_queue = device_context->get_queue_family_index(rhiQueueType::graphics),
-                .dst_queue = device_context->get_queue_family_index(rhiQueueType::transfer)
+                .src_queue = device_context->get_queue_family_index(rhiQueueType::transfer),
+                .dst_queue = device_context->get_queue_family_index(rhiQueueType::graphics)
                 });
         }
 
@@ -175,16 +183,6 @@ void renderer::render(scene* s)
 
         // sky pass
         {
-            auto cmd_list = frame_context->get_command_list(rhiQueueType::graphics);
-            rhiBufferBarrierDescription desc{
-                    .src_stage = rhiPipelineStage::vertex_shader,
-                    .dst_stage = rhiPipelineStage::fragment_shader,
-                    .src_access = rhiAccessFlags::uniform_read,
-                    .dst_access = rhiAccessFlags::uniform_read,
-                    .offset = 0,
-                    .size = sizeof(globalsCB),
-            };
-            render_shared.buffer_barrier(global_ringbuffer[img_index].get(), desc);
             std::unique_ptr<skyUpdateContext> context = std::make_unique<skyUpdateContext>(global_ringbuffer[img_index].get());
             sky_pass.update(context.get());
             sky_pass.render(&render_shared);
@@ -192,7 +190,6 @@ void renderer::render(scene* s)
 
         // lighting pass
         {
-            auto cmd_list = frame_context->get_command_list(rhiQueueType::graphics);
             lightingPass::textureContext ctx{
                 .scene_color = render_shared.scene_color.get(),
                 .gbuf_a = gbuffer_pass.get_gbuffer_a(),
@@ -390,6 +387,15 @@ void renderer::build(scene* s, rhiDeviceContext* context)
     {
         render_shared.create_or_resize_buffer(instance_buffer, instance_bytes, rhiBufferUsage::storage | rhiBufferUsage::transfer_dst, rhiMem::auto_device, sizeof(instanceData));
         render_shared.upload_to_device(instance_buffer.get(), instances.data(), instance_bytes);
+        render_shared.buffer_barrier(instance_buffer.get(), { 
+            .src_stage = rhiPipelineStage::copy, 
+            .dst_stage = rhiPipelineStage::vertex_shader,
+            .src_access = rhiAccessFlags::transfer_write, 
+            .dst_access = rhiAccessFlags::shader_read | rhiAccessFlags::shader_storage_read,
+            .offset = 0, 
+            .size = instance_bytes, 
+            .src_queue = render_shared.context->get_queue_family_index(rhiQueueType::graphics),
+            .dst_queue = render_shared.context->get_queue_family_index(rhiQueueType::transfer) });
     }
     else
     {
@@ -400,6 +406,15 @@ void renderer::build(scene* s, rhiDeviceContext* context)
     {
         render_shared.create_or_resize_buffer(indirect_buffer, indirect_bytes, rhiBufferUsage::indirect | rhiBufferUsage::transfer_dst, rhiMem::auto_device, sizeof(rhiDrawIndexedIndirect));
         render_shared.upload_to_device(indirect_buffer.get(), indirect_args.data(), indirect_bytes);
+        render_shared.buffer_barrier(indirect_buffer.get(), {
+            .src_stage = rhiPipelineStage::copy,
+            .dst_stage = rhiPipelineStage::draw_indirect,
+            .src_access = rhiAccessFlags::transfer_write,
+            .dst_access = rhiAccessFlags::indirect_command_read,
+            .offset = 0,
+            .size = indirect_bytes,
+            .src_queue = render_shared.context->get_queue_family_index(rhiQueueType::graphics),
+            .dst_queue = render_shared.context->get_queue_family_index(rhiQueueType::transfer) });
     }
     else
     {

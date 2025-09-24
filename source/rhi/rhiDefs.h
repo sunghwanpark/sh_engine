@@ -116,6 +116,11 @@ enum class rhiPipelineStage : u32
     bottom_of_pipe = 1u << 31,
 };
 
+inline rhiPipelineStage operator|(rhiPipelineStage a, rhiPipelineStage b)
+{
+    return static_cast<rhiPipelineStage>(static_cast<u32>(a) | static_cast<u32>(b));
+}
+
 enum class rhiShaderStage : u32
 {
     vertex = 1u << 0,
@@ -209,7 +214,7 @@ enum class rhiImageAspect : u32
 
 enum class rhiAccessFlags : u32
 {
-    indirect_command_read = 1u << 0,
+    none,
     index_read = 1u << 1,
     vertex_attribute_read = 1u << 2,
     uniform_read = 1u << 3,
@@ -228,7 +233,12 @@ enum class rhiAccessFlags : u32
     shader_storage_read = 1u << 16,
     shader_storage_write = 1u << 17,
     draw_indirect = 1u << 18,
+    indirect_command_read = 1u << 19,
 };
+inline rhiAccessFlags operator|(rhiAccessFlags a, rhiAccessFlags b)
+{
+    return static_cast<rhiAccessFlags>(static_cast<u16>(a) | static_cast<u16>(b));
+}
 
 enum class rhiMipsMethod { auto_select, linear_blit, compute };
 

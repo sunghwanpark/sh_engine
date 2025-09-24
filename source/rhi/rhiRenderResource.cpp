@@ -6,6 +6,7 @@
 #include "rhi/rhiDefs.h"
 #include "rhi/rhiBuffer.h"
 #include "rhi/rhiCommandList.h"
+#include "rhi/rhiSynchroize.h"
 
 namespace
 {
@@ -78,6 +79,24 @@ void rhiRenderResource::upload(renderShared* rs, textureCache* tex_cache)
 
 	rs->upload_to_device(vbo.get(), raw_data_ptr->vertices.data(), vb_bytes, 0);
 	rs->upload_to_device(ibo.get(), raw_data_ptr->indices.data(), ib_bytes, 0);
+	rs->buffer_barrier(vbo.get(), {
+			.src_stage = rhiPipelineStage::copy,
+			.dst_stage = rhiPipelineStage::vertex_input,
+			.src_access = rhiAccessFlags::transfer_write,
+			.dst_access = rhiAccessFlags::vertex_attribute_read,
+			.offset = 0,
+			.size = vb_bytes,
+			.src_queue = rs->context->get_queue_family_index(rhiQueueType::graphics),
+			.dst_queue = rs->context->get_queue_family_index(rhiQueueType::transfer) });
+	rs->buffer_barrier(ibo.get(), {
+			.src_stage = rhiPipelineStage::copy,
+			.dst_stage = rhiPipelineStage::vertex_input,
+			.src_access = rhiAccessFlags::transfer_write,
+			.dst_access = rhiAccessFlags::index_read,
+			.offset = 0,
+			.size = ib_bytes,
+			.src_queue = rs->context->get_queue_family_index(rhiQueueType::graphics),
+			.dst_queue = rs->context->get_queue_family_index(rhiQueueType::transfer) });
 
 	rebuild_submeshes(tex_cache, raw_data_ptr.get());
 }

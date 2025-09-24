@@ -135,7 +135,7 @@ void rhiFrameContext::submit(rhiDeviceContext* context, const u32 image_index)
                 .signals = { rhiSemaphoreSubmitInfo{
                     .semaphore = device_sync.get(),
                     .value = ++v,
-                    .stage = rhiPipelineStage::transfer
+                    .stage = rhiPipelineStage::copy
                 }}
             };
             context->submit(rhiQueueType::transfer, submit_info);

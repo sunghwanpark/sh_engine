@@ -61,8 +61,8 @@ void lightingPass::update_cbuffers(renderShared* rs, camera* camera, const vec3&
 		l.light_viewproj[i] = light_viewprojs[i];
 
 	const iblParams ibl{
-		.ibl_intensity_diffuse = 0.1f,
-		.ibl_intensity_specular = 0.7f,
+		.ibl_intensity_diffuse = 0.5f,
+		.ibl_intensity_specular = 0.1f,
 		.specular_mip_count = static_cast<f32>(cubemap_mipcount)
 	};
 
