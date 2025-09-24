@@ -6,10 +6,18 @@
 class rhiCommandList;
 class rhiSemaphore;
 class rhiFence;
+
+struct rhiSemaphoreSubmitInfo
+{    
+    rhiSemaphore* semaphore;
+    u64 value; // timeline 
+    rhiPipelineStage stage;
+};
+
 struct rhiSubmitInfo 
 {
-    rhiCommandList* cmds;
-    rhiSemaphore* wait_semaphore;
-    rhiSemaphore* signal_semaphore;
+    std::vector<rhiCommandList*> cmd_lists;
+    std::vector<rhiSemaphoreSubmitInfo> waits;
+    std::vector<rhiSemaphoreSubmitInfo> signals;
     rhiFence* fence = nullptr;
 };

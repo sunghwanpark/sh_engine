@@ -65,5 +65,6 @@ protected:
     std::vector<std::vector<rhiDescriptorSet>> descriptor_sets;
     std::vector<u32> dynamic_offsets;
     std::optional<u32> image_index;
+    rhiQueueType main_job_queue = rhiQueueType::graphics;
     bool initialized = false;
 };

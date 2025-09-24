@@ -65,25 +65,16 @@ void renderShared::create_or_resize_buffer(std::unique_ptr<rhiBuffer>& buffer, c
         });
 }
 
-void renderShared::upload_to_device(rhiCommandList* cmd_list, rhiBuffer* buffer, const void* src, const u32 bytes, const u32 dst_offset)
+void renderShared::image_barrier(rhiTexture* texture, const rhiImageBarrierDescription& desc)
 {
-    assert(dst_offset + bytes <= buffer->size());
-    assert((dst_offset % 4) == 0 && (bytes % 4) == 0);
+    auto cmd = frame_context->get_command_list(desc.src_queue);
+    cmd->image_barrier(texture, desc);
+}
 
-    auto staging_buffer = context->create_buffer(rhiBufferDesc
-        {
-            .size = bytes,
-            .usage = rhiBufferUsage::transfer_src,
-            .memory = rhiMem::auto_host
-        });
-
-    void* p = staging_buffer->map();
-    std::memcpy(p, src, bytes);
-    staging_buffer->flush(0, bytes);
-    staging_buffer->unmap();
-
-    cmd_list->copy_buffer(staging_buffer.get(), 0, buffer, dst_offset, bytes);
-    pending_staging_buffers.push_back(std::move(staging_buffer));
+void renderShared::buffer_barrier(rhiBuffer* buffer, const rhiBufferBarrierDescription& desc)
+{
+    auto cmd = frame_context->get_command_list(desc.src_queue);
+    cmd->buffer_barrier(buffer, desc);
 }
 
 void renderShared::upload_to_device(rhiBuffer* buffer, const void* src, const u32 bytes, const u32 dst_offset)
@@ -103,9 +94,9 @@ void renderShared::upload_to_device(rhiBuffer* buffer, const void* src, const u3
     staging_buffer->flush(0, bytes);
     staging_buffer->unmap();
 
-    auto cmd_list = context->begin_onetime_commands();
-    cmd_list->copy_buffer(staging_buffer.get(), 0, buffer, dst_offset, bytes);
-    context->submit_and_wait(cmd_list);
+    auto transfer_cmd = frame_context->get_command_list(rhiQueueType::transfer);
+    transfer_cmd->copy_buffer(staging_buffer.get(), 0, buffer, dst_offset, bytes);
+    pending_staging_buffers.push_back(std::move(staging_buffer));
 }
 
 const u32 renderShared::get_frame_size() const

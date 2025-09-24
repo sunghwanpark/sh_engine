@@ -23,10 +23,6 @@ vkCmdCenter::vkCmdCenter()
     device_context = std::make_shared<vkDeviceContext>();
     frame_context = std::make_shared<vkFrameContext>();
     surface = std::make_unique<vkSurface>();
-    std::ranges::for_each(queue, [](auto& q)
-        {
-            q = std::make_unique<vkQueue>();
-        });
 }
 
 vkCmdCenter::~vkCmdCenter()
@@ -205,13 +201,13 @@ bool vkCmdCenter::create_physical_device()
 
 bool vkCmdCenter::is_device_suitable(VkPhysicalDevice device)
 {
-    queueFamilyIndices indices = find_queue_families(device);
+    vkQueueFamilyIndices indices = find_queue_families(device);
     return indices.is_complete();
 }
 
-vkCmdCenter::queueFamilyIndices vkCmdCenter::find_queue_families(VkPhysicalDevice device)
+vkQueueFamilyIndices vkCmdCenter::find_queue_families(VkPhysicalDevice device)
 {
-    queueFamilyIndices indices;
+    vkQueueFamilyIndices indices;
 
     u32 queue_family_property_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_property_count, nullptr);
@@ -222,15 +218,18 @@ vkCmdCenter::queueFamilyIndices vkCmdCenter::find_queue_families(VkPhysicalDevic
     for (u32 i = 0; i < queue_family_property_count; ++i) 
     {
         if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) 
-            indices.families[static_cast<u32>(queueFamilyIndices::queue_family_type::graphics)] = i;
+            indices.families[static_cast<u32>(vkQueueFamilyIndices::queue_family_type::graphics)] = i;
 
         if (queue_families[i].queueFlags & VK_QUEUE_COMPUTE_BIT)
-            indices.families[static_cast<u32>(queueFamilyIndices::queue_family_type::compute)] = i;
+            indices.families[static_cast<u32>(vkQueueFamilyIndices::queue_family_type::compute)] = i;
+
+        if (queue_families[i].queueFlags & VK_QUEUE_TRANSFER_BIT)
+            indices.families[static_cast<u32>(vkQueueFamilyIndices::queue_family_type::transfer)] = i;
 
         VkBool32 presentSupport = false;
         vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface->get_surface(), &presentSupport);
         if (presentSupport) 
-            indices.families[static_cast<u32>(queueFamilyIndices::queue_family_type::present)] = i;
+            indices.families[static_cast<u32>(vkQueueFamilyIndices::queue_family_type::present)] = i;
 
         if (indices.is_complete()) 
             break;
@@ -248,9 +247,9 @@ bool vkCmdCenter::create_logical_device()
         | std::views::filter([](auto const& f) { return f.has_value(); })
         | std::views::transform([](auto const& f) { return f.value(); });
     auto uniq_families = std::vector<u32>(std::ranges::begin(rng_uniq_families), std::ranges::end(rng_uniq_families));
-    const bool all_same = std::ranges::all_of(uniq_families, [first = uniq_families.front()](u32 v) 
-        { 
-            return v == first; 
+    const bool all_same = std::ranges::all_of(uniq_families, [first = uniq_families.front()](u32 v)
+        {
+            return v == first;
         });
 
     const f32 queue_priority = 1.0f;
@@ -340,20 +339,31 @@ bool vkCmdCenter::create_logical_device()
     device_create_info.pNext = &device_features2;
 
     VK_CHECK_ERROR(vkCreateDevice(vk_context->phys_device, &device_create_info, nullptr, &vk_context->device));
-    for (auto type : enum_range_to_sentinel<queueFamilyIndices::queue_family_type, queueFamilyIndices::queue_family_type::count>())
-    {
-        if (!queue_family_indices.families[static_cast<i32>(type)].has_value())
-            continue;
-
-        queue[static_cast<i32>(type)]->create_queue(vk_context->device, queue_family_indices.families[static_cast<i32>(type)].value());
-    }
 
     volkLoadDevice(vk_context->device);
+    vk_context->create_imageview_cache();
+    vk_context->create_vma_allocator(instance);
+    std::unordered_map<rhiQueueType, u32> queue_family;
+    for (auto type : enum_range_to_sentinel<vkQueueFamilyIndices::queue_family_type, vkQueueFamilyIndices::queue_family_type::count>())
+    {
+        const auto& opt = queue_family_indices.families[static_cast<i32>(type)];
+        if (!opt.has_value())
+            continue;
 
-    vk_context->init_after_createdevice(
-        instance, 
-        queue[static_cast<i32>(queueFamilyIndices::queue_family_type::graphics)]->handle(), 
-        queue_family_indices.families[static_cast<i32>(queueFamilyIndices::queue_family_type::graphics)].value());
+        rhiQueueType t = rhiQueueType::none;
+        if (type == vkQueueFamilyIndices::queue_family_type::graphics)
+            t = rhiQueueType::graphics;
+        else if (type == vkQueueFamilyIndices::queue_family_type::compute)
+            t = rhiQueueType::compute;
+        else if (type == vkQueueFamilyIndices::queue_family_type::transfer)
+            t = rhiQueueType::transfer;
+        else if (type == vkQueueFamilyIndices::queue_family_type::present)
+            t = rhiQueueType::present;
+
+        if(t != rhiQueueType::none)
+            queue_family.emplace(t, opt.value());
+    }
+    vk_context->create_queue(queue_family);
 
     return true;
 }
@@ -362,16 +372,19 @@ bool vkCmdCenter::create_swapchain(const u32 width, const u32 height)
 {
     assert(swapchain == nullptr);
 
-    const u32 gfx_queue_findex = queue_family_indices.families[static_cast<u32>(queueFamilyIndices::queue_family_type::graphics)].value();
-    const u32 present_queue_findex =queue_family_indices.families[static_cast<u32>(queueFamilyIndices::queue_family_type::present)].value();
-    const auto present_queue = queue[static_cast<i32>(queueFamilyIndices::queue_family_type::present)]->handle();
+    auto vk_device_context = std::static_pointer_cast<vkDeviceContext>(device_context);
+    assert(vk_device_context);
+
+    const u32 gfx_queue_findex = queue_family_indices.families[static_cast<u32>(vkQueueFamilyIndices::queue_family_type::graphics)].value();
+    const u32 present_queue_findex =queue_family_indices.families[static_cast<u32>(vkQueueFamilyIndices::queue_family_type::present)].value();
+    auto present_queue = vk_device_context->get_queue(rhiQueueType::present);
 
     vkSwapChainCreateDesc desc{
         .context = std::dynamic_pointer_cast<vkDeviceContext>(device_context).get(),
         .surface = surface->get_surface(),
         .gfx_family = gfx_queue_findex,
         .present_family = present_queue_findex,
-        .present_queue = present_queue,
+        .present_queue = reinterpret_cast<VkQueue>(present_queue->handle()),
         .width = width,
         .height = height
     };
@@ -382,12 +395,6 @@ bool vkCmdCenter::create_swapchain(const u32 width, const u32 height)
 
 void vkCmdCenter::init_frame_context()
 {
-    const u32 gfx_queue_findex = queue_family_indices.families[static_cast<u32>(queueFamilyIndices::queue_family_type::graphics)].value();
-    auto gfx_queue = queue[static_cast<u32>(queueFamilyIndices::queue_family_type::graphics)]->handle();
-
-    auto vk_device_context = std::static_pointer_cast<vkDeviceContext>(device_context);
-    auto vk_frame_context = std::static_pointer_cast<vkFrameContext>(frame_context);
-    vk_frame_context->swapchain = swapchain.get();
-    vk_frame_context->update_inflight(vk_device_context, swapchain->get_swapchain_image_count(), gfx_queue_findex);
-    vk_frame_context->create_graphics_queue(vk_device_context->device, gfx_queue, gfx_queue_findex);
+    frame_context->swapchain = swapchain.get();
+    frame_context->update_inflight(device_context.get(), swapchain->get_swapchain_image_count());
 }

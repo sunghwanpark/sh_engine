@@ -17,7 +17,6 @@ namespace
 void skyPass::initialize(const drawInitContext& context)
 {
     drawPass::initialize(context);
-    precompile_dispatch();
 }
 
 void skyPass::precompile_dispatch()
@@ -29,7 +28,7 @@ void skyPass::precompile_dispatch()
     // hdr to equirect
     //auto equirect_tex = rs->context->create_texture_from_path("E:\\Sponza\\resource\\kloofendal_28d_misty_puresky_4k.hdr", true, false);
     //auto equirect_tex = rs->context->create_texture_from_path("E:\\Sponza\\resource\\qwantani_moonrise_puresky_4k.hdr", true, false);
-    auto equirect_tex = rs->context->create_texture_from_path("E:\\Sponza\\resource\\818-hdri-skies-com.hdr", true, false);
+    equirect_tex = rs->context->create_texture_from_path("E:\\Sponza\\resource\\818-hdri-skies-com.hdr", true, false);
 
     // create compute pipeline layout
     auto cs_descriptor_layout1 = rs->context->create_descriptor_set_layout(
@@ -118,7 +117,7 @@ void skyPass::precompile_dispatch()
     const rhiComputePipelineDesc cs_desc{
         .cs = cs
     };
-    auto cs_pipeline = rs->context->create_compute_pipeline(cs_desc, cs_pipeline_layout);
+    cs_pipeline = rs->context->create_compute_pipeline(cs_desc, cs_pipeline_layout);
 
     // create cubemap
     const rhiTextureDesc d{
@@ -153,7 +152,7 @@ void skyPass::precompile_dispatch()
     };
     rs->context->update_descriptors({ uav_desc });
 
-    auto cmd = rs->context->begin_onetime_commands();
+    auto cmd = rs->frame_context->get_command_list(rhiQueueType::compute);
     cmd->bind_pipeline(cs_pipeline.get());
     cmd->bind_descriptor_sets(cs_pipeline_layout, rhiPipelineType::compute, { cs_descriptor_sets1 }, 0, {});
     cmd->bind_descriptor_sets(cs_pipeline_layout, rhiPipelineType::compute, { cs_descriptor_sets2 }, 1, {});
@@ -275,8 +274,10 @@ void skyPass::precompile_dispatch()
 
     rs->create_or_resize_buffer(irradiance_cb, sizeof(irradianceCB), rhiBufferUsage::transfer_dst | rhiBufferUsage::uniform, rhiMem::auto_device, sizeof(irradianceCB));
     const irradianceCB cb = { irradiance_cube_resolution, 128 };
-    rs->upload_to_device(cmd.get(), irradiance_cb.get(), &cb, sizeof(irradianceCB));
-    cmd->buffer_barrier(irradiance_cb.get(), rhiPipelineStage::transfer, rhiPipelineStage::compute_shader, rhiAccessFlags::transfer_write, rhiAccessFlags::uniform_read, 0, sizeof(irradianceCB));
+    rs->upload_to_device(irradiance_cb.get(), &cb, sizeof(irradianceCB));
+    rs->buffer_barrier(irradiance_cb.get(), rhiBufferBarrierDescription{
+        rhiPipelineStage::transfer, rhiPipelineStage::compute_shader, rhiAccessFlags::transfer_write, rhiAccessFlags::uniform_read, 0, sizeof(irradianceCB),
+        rs->context->get_queue_family_index(rhiQueueType::compute), rs->context->get_queue_family_index(rhiQueueType::transfer) });
 
     const rhiDescriptorBufferInfo irr_buffer_info{
        .buffer = irradiance_cb.get(),
@@ -299,7 +300,7 @@ void skyPass::precompile_dispatch()
     const rhiComputePipelineDesc irr_cs_desc{
         .cs = irr_cs
     };
-    auto irr_cs_pipeline = rs->context->create_compute_pipeline(irr_cs_desc, irr_pipeline_layout);
+    irr_cs_pipeline = rs->context->create_compute_pipeline(irr_cs_desc, irr_pipeline_layout);
 
     // create irradiance_cubemap
     cmd->bind_pipeline(irr_cs_pipeline.get());
@@ -397,7 +398,7 @@ void skyPass::precompile_dispatch()
     const rhiComputePipelineDesc spec_cs_desc{
         .cs = spec_cs
     };
-    auto spec_pipeline = rs->context->create_compute_pipeline(spec_cs_desc, spec_pipeline_layout);
+    spec_pipeline = rs->context->create_compute_pipeline(spec_cs_desc, spec_pipeline_layout);
 
     // create cubemap
     const rhiTextureDesc spec_desc{
@@ -510,7 +511,7 @@ void skyPass::precompile_dispatch()
     const rhiComputePipelineDesc brdf_cs_desc{
         .cs = brdf_cs
     };
-    auto brdf_cs_pipeline = rs->context->create_compute_pipeline(brdf_cs_desc, brdf_pipeline_layout);
+    brdf_cs_pipeline = rs->context->create_compute_pipeline(brdf_cs_desc, brdf_pipeline_layout);
 
     // create brdf lut
     cmd->bind_pipeline(brdf_cs_pipeline.get());
@@ -526,7 +527,6 @@ void skyPass::precompile_dispatch()
     cmd->image_barrier(brdf_lut.get(), rhiImageLayout::compute, rhiImageLayout::shader_readonly);
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    rs->context->submit_and_wait(cmd);
 }
 
 void skyPass::build_layouts(renderShared* rs)

@@ -12,6 +12,8 @@ struct rhiPipelineLayout;
 struct rhiDescriptorSet;
 struct rhiBufferImageCopy;
 struct rhiGenMipsDesc;
+struct rhiImageBarrierDescription;
+struct rhiBufferBarrierDescription;
 class rhiCommandList 
 {
 public:
@@ -27,7 +29,8 @@ public:
     virtual void copy_buffer_to_image(rhiBuffer* src_buf, rhiTexture* dst_tex, rhiImageLayout layout, std::span<const rhiBufferImageCopy> regions) = 0;
     virtual void image_barrier(rhiTexture* tex, rhiImageLayout old_layout, rhiImageLayout new_layout, u32 base_mip = 0, u32 level_count = 1, u32 base_layer = 0, u32 layer_count = 1, bool is_same_stage = false) = 0;
     virtual void image_barrier(rhiTextureCubeMap* tex, rhiImageLayout old_layout, rhiImageLayout new_layout, u32 base_mip = 0, u32 level_count = 1, u32 base_layer = 0, u32 layer_count = 1, bool is_same_stage = false) = 0;
-    virtual void buffer_barrier(rhiBuffer* buf, rhiPipelineStage src_stage, rhiPipelineStage dst_stage, rhiAccessFlags src_access, rhiAccessFlags dst_access, u32 offset, u64 size) = 0;
+    virtual void image_barrier(rhiTexture* tex, const rhiImageBarrierDescription& desc) = 0;
+    virtual void buffer_barrier(rhiBuffer* buf, const rhiBufferBarrierDescription& desc) = 0;
 
     virtual void generate_mips(rhiTexture* tex, const rhiGenMipsDesc& desc) = 0;
 

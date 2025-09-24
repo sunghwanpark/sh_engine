@@ -24,7 +24,8 @@ public:
     void copy_buffer_to_image(rhiBuffer* src_buf, rhiTexture* dst_tex, rhiImageLayout layout, std::span<const rhiBufferImageCopy> regions) override;
     void image_barrier(rhiTexture* tex, rhiImageLayout old_layout, rhiImageLayout new_layout, u32 base_mip = 0, u32 level_count = 1, u32 base_layer = 0, u32 layer_count = 1, bool is_same_stage = false) override;
     void image_barrier(rhiTextureCubeMap* tex, rhiImageLayout old_layout, rhiImageLayout new_layout, u32 base_mip = 0, u32 level_count = 1, u32 base_layer = 0, u32 layer_count = 1, bool is_same_stage = false) override;
-    void buffer_barrier(rhiBuffer* buf, rhiPipelineStage src_stage, rhiPipelineStage dst_stage, rhiAccessFlags src_access, rhiAccessFlags dst_access, u32 offset, u64 size) override;
+    void image_barrier(rhiTexture* tex, const rhiImageBarrierDescription& desc) override;
+    void buffer_barrier(rhiBuffer* buf, const rhiBufferBarrierDescription& desc) override;
 
     void generate_mips(rhiTexture* tex, const rhiGenMipsDesc& desc) override;
 

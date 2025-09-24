@@ -9,6 +9,8 @@ class rhiDeviceContext;
 class rhiFrameContext;
 class rhiBuffer;
 class rhiCommandList;
+struct rhiImageBarrierDescription;
+struct rhiBufferBarrierDescription;
 
 struct sharedSamplers
 {
@@ -62,7 +64,8 @@ public:
     void create_or_resize_buffer(std::shared_ptr<rhiBuffer>& buffer, const u32 bytes, const rhiBufferUsage usage, const rhiMem mem, const u32 stride);
     void create_or_resize_buffer(std::unique_ptr<rhiBuffer>& buffer, const u32 bytes, const rhiBufferUsage usage, const rhiMem mem, const u32 stride);
 
-    void upload_to_device(rhiCommandList* cmd_list, rhiBuffer* buffer, const void* src, const u32 bytes, const u32 dst_offset = 0);
+    void image_barrier(rhiTexture* texture, const rhiImageBarrierDescription& desc);
+    void buffer_barrier(rhiBuffer* buffer, const rhiBufferBarrierDescription& desc);
     void upload_to_device(rhiBuffer* buffer, const void* src, const u32 bytes, const u32 dst_offset = 0);
     const u32 get_frame_size() const;
     void clear_staging_buffer();

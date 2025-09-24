@@ -142,112 +142,6 @@ void shadowPass::update_cascade(scene* s, const vec2 framebuffer_size)
 	}
 }
 
-/*void shadowPass::update_cascade(scene* s, const vec2 framebuffer_size)
-{
-	if(cascade_splits.empty())
-		cascade_splits.resize(cascade_count);
-
-	const f32 near = s->get_camera()->get_near();
-	const f32 far = s->get_camera()->get_far();
-	const f32 range = far - near;
-	const f32 ratio = far / near;
-
-	for (u32 i = 0; i < cascade_count; i++)
-	{
-		f32 p = (i + 1) / static_cast<f32>(cascade_count);
-		f32 log = near * std::pow(ratio, p);
-		f32 uni = near + range * p;
-		f32 d = 0.6f * (log - uni) + uni;
-		cascade_splits[i] = (d - near) / range;
-	}
-	
-	const mat4 v = s->get_camera()->view();
-	const mat4 p = s->get_camera()->proj(framebuffer_size);
-	const mat4 inv_cam = glm::inverse(p * v);
-	const vec3 light_dir = normalize(s->get_directional_light()->get_direction());
-
-	f32 last_split_dist = 0.0;
-	for (u32 i = 0; i < cascade_count; ++i) 
-	{
-		std::array<vec3, shadowpass::aabb_corners_count> frustum_corners = {
-			vec3(-1.0f,  1.0f, 0.0f),
-			vec3(1.0f,  1.0f, 0.0f),
-			vec3(1.0f, -1.0f, 0.0f),
-			vec3(-1.0f, -1.0f, 0.0f),
-			vec3(-1.0f,  1.0f,  1.0f),
-			vec3(1.0f,  1.0f,  1.0f),
-			vec3(1.0f, -1.0f,  1.0f),
-			vec3(-1.0f, -1.0f,  1.0f),
-		};
-
-		float split_dist = cascade_splits[i];
-		// Project frustum corners into world space
-		for (u32 j = 0; j < shadowpass::aabb_corners_count; ++j) 
-		{
-			vec4 inv_corner = inv_cam * vec4(frustum_corners[j], 1.0f);
-			frustum_corners[j] = inv_corner / inv_corner.w;
-		}
-
-		for (u32 j = 0; j < 4; ++j) 
-		{
-			vec3 dist = frustum_corners[j + 4] - frustum_corners[j];
-			frustum_corners[j + 4] = frustum_corners[j] + (dist * split_dist);
-			frustum_corners[j] = frustum_corners[j] + (dist * last_split_dist);
-		}
-
-		// Get frustum center
-		vec3 frustum_center = glm::vec3(0.0f);
-		for (u32 j = 0; j < shadowpass::aabb_corners_count; ++j)
-		{
-			frustum_center += frustum_corners[j];
-		}
-		frustum_center /= static_cast<f32>(shadowpass::aabb_corners_count);
-
-		f32 radius = 0.0f;
-		for (u32 j = 0; j < shadowpass::aabb_corners_count; j++)
-		{
-			float distance = glm::length(frustum_corners[j] - frustum_center);
-			radius = glm::max(radius, distance);
-		}
-		radius = std::ceil(radius * 16.0f) / 16.0f;
-
-		const f32 z_padding = 10.0f;
-		const f32 dist = radius * 2.0f + z_padding;
-		mat4 light_view = glm::lookAtLH(frustum_center - light_dir, frustum_center, vec3(0, 1, 0));
-		vec3 min_extents = vec3(std::numeric_limits<float>::max());
-		vec3 max_extents = vec3(std::numeric_limits<float>::lowest());
-		for (u32 j = 0; j < shadowpass::aabb_corners_count; ++j)
-		{
-			vec3 ls = light_view * vec4(frustum_corners[j], 1.f);
-			min_extents = glm::min(min_extents, ls);
-			max_extents = glm::max(max_extents, ls);
-		}
-
-		/*const f32 padding_xy_abs = 2.0f;
-		const f32 padding_xy_relative = 0.03f * glm::max(max_extents.x - min_extents.x, max_extents.y - min_extents.y);
-		const f32 padding_xy = glm::max(padding_xy_abs, padding_xy_relative);
-
-		const f32 padding_z_abs = 5.0f;
-		const f32 padding_z_relative = 0.05f * (max_extents.z - min_extents.z);
-		const f32 padding_z = glm::max(padding_z_abs, padding_z_relative);
-
-		min_extents.x -= padding_xy;
-		min_extents.y -= padding_xy;
-		min_extents.z -= padding_z;
-
-		max_extents.x += padding_xy;
-		max_extents.y += padding_xy;
-		max_extents.z += padding_z;
-
-		mat4 light_orthoproj = glm::orthoLH(min_extents.x, max_extents.x, min_extents.y, max_extents.y, min_extents.z, max_extents.z);
-
-		light_vps[i].light_viewproj = light_orthoproj * light_view;
-		light_vps[i].cascade_index = i;
-
-		last_split_dist = cascade_splits[i];
-	}
-}*/
-
 void shadowPass::build_layouts(renderShared* rs)
 {
 	set_instances = rs->context->create_descriptor_set_layout(
@@ -312,12 +206,13 @@ void shadowPass::update_globals(renderShared* rs, const u32 current_cascade)
 	if (!uniform_ring_buffer[image_index.value()])
 		assert(false);
 
-	auto& current_frame = rs->frame_context->get(image_index.value());
-	auto cmd_list = current_frame.cmd.get();
-
-	cmd_list->buffer_barrier(uniform_ring_buffer[image_index.value()].get(), rhiPipelineStage::vertex_shader, rhiPipelineStage::copy, rhiAccessFlags::uniform_read, rhiAccessFlags::transfer_write, 0, sizeof(globalsCB));
-	rs->upload_to_device(cmd_list, uniform_ring_buffer[image_index.value()].get(), &light_vps[current_cascade], sizeof(globalsCB));
-	cmd_list->buffer_barrier(uniform_ring_buffer[image_index.value()].get(), rhiPipelineStage::copy, rhiPipelineStage::vertex_shader, rhiAccessFlags::transfer_write, rhiAccessFlags::uniform_read, 0, sizeof(globalsCB));
+	rs->buffer_barrier(uniform_ring_buffer[image_index.value()].get(), rhiBufferBarrierDescription{
+		rhiPipelineStage::vertex_shader, rhiPipelineStage::copy, rhiAccessFlags::uniform_read, rhiAccessFlags::transfer_write, 0, sizeof(globalsCB),
+		rs->context->get_queue_family_index(rhiQueueType::graphics), rs->context->get_queue_family_index(rhiQueueType::transfer) });
+	rs->upload_to_device(uniform_ring_buffer[image_index.value()].get(), &light_vps[current_cascade], sizeof(globalsCB));
+	rs->buffer_barrier(uniform_ring_buffer[image_index.value()].get(), rhiBufferBarrierDescription{
+		rhiPipelineStage::copy, rhiPipelineStage::vertex_shader, rhiAccessFlags::transfer_write, rhiAccessFlags::uniform_read, 0, sizeof(globalsCB),
+		rs->context->get_queue_family_index(rhiQueueType::graphics), rs->context->get_queue_family_index(rhiQueueType::transfer) });
 
 	const rhiDescriptorBufferInfo buffer_info{
 		.buffer = uniform_ring_buffer[image_index.value()].get(),
@@ -337,8 +232,7 @@ void shadowPass::update_globals(renderShared* rs, const u32 current_cascade)
 
 void shadowPass::render(renderShared* rs)
 {
-	auto& current_frame = rs->frame_context->get(image_index.value());
-	auto cmd = current_frame.cmd.get();
+	auto cmd = rs->frame_context->get_command_list(main_job_queue);
 
 	begin_barrier(cmd);
 	cmd->begin_render_pass(render_info);

@@ -56,7 +56,7 @@ public:
 
 public:
     void link_textures(textureContext& context);
-    void update(renderShared* rs, rhiCommandList* cmd, camera* camera, const vec3& light_dir, const std::vector<mat4>& light_viewprojs, const std::vector<f32>& cascade_splits, const u32 shadow_resolution, const u32 cubemap_mipcount);
+    void update(renderShared* rs, camera* camera, const vec3& light_dir, const std::vector<mat4>& light_viewprojs, const std::vector<f32>& cascade_splits, const u32 shadow_resolution, const u32 cubemap_mipcount);
 
 protected:
     void build_layouts(renderShared* rs) override;
@@ -64,7 +64,7 @@ protected:
     void build_pipeline(renderShared* rs) override;
 
 private:
-    void update_cbuffers(renderShared* rs, rhiCommandList* cmd, camera* camera, const vec3& light_dir, const std::vector<mat4>& light_viewprojs, const std::vector<f32>& cascade_splits, const u32 shadow_resolution, const u32 cubemap_mipcount);
+    void update_cbuffers(renderShared* rs, camera* camera, const vec3& light_dir, const std::vector<mat4>& light_viewprojs, const std::vector<f32>& cascade_splits, const u32 shadow_resolution, const u32 cubemap_mipcount);
     void update_descriptors(renderShared* rs);
 
 private:

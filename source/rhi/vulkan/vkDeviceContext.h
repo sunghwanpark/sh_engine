@@ -2,6 +2,7 @@
 
 #include "pch.h"
 #include "rhi/rhiDeviceContext.h"
+#include "vkCmdCenter.h"
 #include "vk_mem_alloc.h"
 
 class rhiBuffer;
@@ -24,6 +25,7 @@ class vkDeviceContext final : public rhiDeviceContext
 public:
 	virtual ~vkDeviceContext();
 
+	std::unique_ptr<rhiCommandList> create_commandlist(u32 queue_family) override;
 	std::unique_ptr<rhiBindlessTable> create_bindless_table(const rhiBindlessDesc& desc, const u32 set_index = 0) override;
 	std::unique_ptr<rhiBuffer> create_buffer(const rhiBufferDesc& desc) override;
 	std::unique_ptr<rhiTexture> create_texture(const rhiTextureDesc& desc) override;
@@ -44,25 +46,24 @@ public:
 	std::unique_ptr<rhiPipeline> create_graphics_pipeline(const rhiGraphicsPipelineDesc& desc, const rhiPipelineLayout& layout) override;
 	std::unique_ptr<rhiPipeline> create_compute_pipeline(const rhiComputePipelineDesc& desc, const rhiPipelineLayout& layout) override;
 	
-	std::shared_ptr<rhiCommandList> begin_onetime_commands() override;
-	void submit_and_wait(std::shared_ptr<rhiCommandList> cmd) override;
+	std::shared_ptr<rhiCommandList> begin_onetime_commands(rhiQueueType t = rhiQueueType::graphics) override;
+	void submit_and_wait(std::shared_ptr<rhiCommandList> cmd, rhiQueueType t = rhiQueueType::graphics) override;
+	void submit(rhiQueueType type, const rhiSubmitInfo& info) override;
 	void wait(class rhiFence* f) override;
 	void reset(class rhiFence* f) override;
 
 	bool verify_device() const;
 	bool verify_phys_device() const;
 
-	void init_after_createdevice(VkInstance instance, VkQueue graphics_queue, const u32 graphics_queue_family);
+	void create_imageview_cache();
+	void create_vma_allocator(VkInstance instance);
+	void create_queue(const std::unordered_map<rhiQueueType, u32>& queue_families);
 	std::weak_ptr<vkImageViewCache> get_imageview_cache() const { return imageview_cache; }
 
 public:
 	VkDevice device = VK_NULL_HANDLE;
 	VkPhysicalDevice phys_device = VK_NULL_HANDLE;
 	VmaAllocator allocator = VK_NULL_HANDLE;
-
-private:
-	VkQueue graphics_queue = VK_NULL_HANDLE;
-	u32 gfx_queue_family = 0;
 
 private:
 	std::vector<std::shared_ptr<vkDescriptorSetLayoutHolder>> kept_descriptor_layouts;

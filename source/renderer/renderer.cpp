@@ -7,6 +7,8 @@
 #include "rhi/rhiSwapChain.h"
 #include "rhi/rhiSubmitInfo.h"
 #include "rhi/rhiGraphicsQueue.h"
+#include "rhi/rhiSynchroize.h"
+#include "rhi/rhiQueue.h"
 #include "scene/scene.h"
 #include "scene/camera.h"
 #include "scene/light/directionalLightActor.h"
@@ -40,7 +42,6 @@ void renderer::initialize(scene* s, rhiDeviceContext* device_context, rhiFrameCo
     bindless_table = device_context->create_bindless_table(rhiBindlessDesc(), 2);
 
     render_shared.Initialize(device_context, frame_context);
-    
     {
         gbufferInitContext ctx{};
         ctx.rs = &render_shared;
@@ -88,8 +89,7 @@ void renderer::initialize(scene* s, rhiDeviceContext* device_context, rhiFrameCo
     }
 
     create_ringbuffer(render_shared.get_frame_size());
-    prepare(s);
-    build(s, device_context);
+    
 }
 
 void renderer::pre_render(scene* s)
@@ -100,6 +100,7 @@ void renderer::pre_render(scene* s)
     {
         gbuffer_pass.shutdown();
         shadow_pass.shutdown();
+        sky_pass.shutdown();
         lighting_pass.shutdown();
         composite_pass.shutdown();
         initialize(s, render_shared.context, render_shared.frame_context);
@@ -121,86 +122,118 @@ void renderer::render(scene* s)
 
     notify_nextimage_index_to_drawpass(img_index);
 
-    auto& current_frame = frame_context->get(img_index);
-    auto cmd_list = current_frame.cmd.get();
+    frame_context->command_begin();
 
-    cmd_list->reset();
-    cmd_list->begin();
-
-    // build global view_proj
+    if(!initialized)
     {
-        globalsCB cb;
-        cb.view = s->get_camera()->view();
-        cb.proj = s->get_camera()->proj(framebuffer_size);
-        cb.inv_view_proj = glm::inverse(cb.proj * cb.view);
-        cb.cam_pos = vec4(s->get_camera()->get_position(), 0.f);
-        cmd_list->buffer_barrier(global_ringbuffer[img_index].get(), rhiPipelineStage::fragment_shader, rhiPipelineStage::copy, rhiAccessFlags::uniform_read, rhiAccessFlags::transfer_write, 0, sizeof(globalsCB));
-        render_shared.upload_to_device(cmd_list, global_ringbuffer[img_index].get(), &cb, sizeof(globalsCB));
-        cmd_list->buffer_barrier(global_ringbuffer[img_index].get(), rhiPipelineStage::copy, rhiPipelineStage::vertex_shader, rhiAccessFlags::transfer_write, rhiAccessFlags::uniform_read, 0, sizeof(globalsCB));
+        sky_pass.precompile_dispatch();
+        prepare(s);
+        build(s, device_context);
     }
-
-    // shadow pass
+    else
     {
-        shadow_pass.update(&render_shared, s, framebuffer_size);
-        shadow_pass.render(&render_shared);
-    }
+        // build global view_proj
+        {
+            globalsCB cb;
+            cb.view = s->get_camera()->view();
+            cb.proj = s->get_camera()->proj(framebuffer_size);
+            cb.inv_view_proj = glm::inverse(cb.proj * cb.view);
+            cb.cam_pos = vec4(s->get_camera()->get_position(), 0.f);
 
-    // gbuffer pass
-    {
-        gbuffer_pass.update(&render_shared, global_ringbuffer[img_index].get(), instance_buffer.get());
-        gbuffer_pass.render(&render_shared);
-    }
-    
-    // sky pass
-    {
-        cmd_list->buffer_barrier(global_ringbuffer[img_index].get(), rhiPipelineStage::vertex_shader, rhiPipelineStage::fragment_shader, rhiAccessFlags::uniform_read, rhiAccessFlags::uniform_read, 0, sizeof(globalsCB));
-        std::unique_ptr<skyUpdateContext> context = std::make_unique<skyUpdateContext>(global_ringbuffer[img_index].get());
-        sky_pass.update(context.get());
-        sky_pass.render(&render_shared);
-    }
+            render_shared.buffer_barrier(global_ringbuffer[img_index].get(), rhiBufferBarrierDescription{
+                .src_stage = rhiPipelineStage::fragment_shader,
+                .dst_stage = rhiPipelineStage::copy,
+                .src_access = rhiAccessFlags::uniform_read,
+                .dst_access = rhiAccessFlags::transfer_write,
+                .size = sizeof(globalsCB),
+                .src_queue = device_context->get_queue_family_index(rhiQueueType::graphics),
+                .dst_queue = device_context->get_queue_family_index(rhiQueueType::transfer)
+                });
+            render_shared.upload_to_device(global_ringbuffer[img_index].get(), &cb, sizeof(globalsCB));
+            render_shared.buffer_barrier(global_ringbuffer[img_index].get(), rhiBufferBarrierDescription{
+                .src_stage = rhiPipelineStage::copy,
+                .dst_stage = rhiPipelineStage::vertex_shader,
+                .src_access = rhiAccessFlags::transfer_write,
+                .dst_access = rhiAccessFlags::uniform_read,
+                .size = sizeof(globalsCB),
+                .src_queue = device_context->get_queue_family_index(rhiQueueType::graphics),
+                .dst_queue = device_context->get_queue_family_index(rhiQueueType::transfer)
+                });
+        }
 
-    // lighting pass
-    {
-        lightingPass::textureContext ctx{
-            .scene_color = render_shared.scene_color.get(),
-            .gbuf_a = gbuffer_pass.get_gbuffer_a(),
-            .gbuf_b = gbuffer_pass.get_gbuffer_b(),
-            .gbuf_c = gbuffer_pass.get_gbuffer_c(),
-            .depth = gbuffer_pass.get_depth(),
-            .shadows = shadow_pass.get_shadow_texture(),
-            .ibl_irradiance = sky_pass.get_irradiance_map(),
-            .ibl_specular = sky_pass.get_specular_map(),
-            .ibl_brdf_lut = sky_pass.get_brdf_lut_map()
-        };
-        lighting_pass.link_textures(ctx);
-        lighting_pass.update(
-            &render_shared,
-            cmd_list, s->get_camera(),
-            s->get_directional_light()->get_direction(),
-            shadow_pass.get_light_viewproj(),
-            shadow_pass.get_cascade_splits(),
-            shadow_pass.get_width(),
-            sky_pass.get_cubemap_mip_count());
-        lighting_pass.render(&render_shared);
+        // shadow pass
+        {
+            shadow_pass.update(&render_shared, s, framebuffer_size);
+            shadow_pass.render(&render_shared);
+        }
+
+        // gbuffer pass
+        {
+            gbuffer_pass.update(&render_shared, global_ringbuffer[img_index].get(), instance_buffer.get());
+            gbuffer_pass.render(&render_shared);
+        }
+
+        // sky pass
+        {
+            auto cmd_list = frame_context->get_command_list(rhiQueueType::graphics);
+            rhiBufferBarrierDescription desc{
+                    .src_stage = rhiPipelineStage::vertex_shader,
+                    .dst_stage = rhiPipelineStage::fragment_shader,
+                    .src_access = rhiAccessFlags::uniform_read,
+                    .dst_access = rhiAccessFlags::uniform_read,
+                    .offset = 0,
+                    .size = sizeof(globalsCB),
+            };
+            render_shared.buffer_barrier(global_ringbuffer[img_index].get(), desc);
+            std::unique_ptr<skyUpdateContext> context = std::make_unique<skyUpdateContext>(global_ringbuffer[img_index].get());
+            sky_pass.update(context.get());
+            sky_pass.render(&render_shared);
+        }
+
+        // lighting pass
+        {
+            auto cmd_list = frame_context->get_command_list(rhiQueueType::graphics);
+            lightingPass::textureContext ctx{
+                .scene_color = render_shared.scene_color.get(),
+                .gbuf_a = gbuffer_pass.get_gbuffer_a(),
+                .gbuf_b = gbuffer_pass.get_gbuffer_b(),
+                .gbuf_c = gbuffer_pass.get_gbuffer_c(),
+                .depth = gbuffer_pass.get_depth(),
+                .shadows = shadow_pass.get_shadow_texture(),
+                .ibl_irradiance = sky_pass.get_irradiance_map(),
+                .ibl_specular = sky_pass.get_specular_map(),
+                .ibl_brdf_lut = sky_pass.get_brdf_lut_map()
+            };
+            lighting_pass.link_textures(ctx);
+            lighting_pass.update(
+                &render_shared,
+                s->get_camera(),
+                s->get_directional_light()->get_direction(),
+                shadow_pass.get_light_viewproj(),
+                shadow_pass.get_cascade_splits(),
+                shadow_pass.get_width(),
+                sky_pass.get_cubemap_mip_count());
+            lighting_pass.render(&render_shared);
+        }
+
+        // translucent pass
+        {
+
+        }
+
+        // composite
+        {
+            composite_pass.update(&render_shared, render_shared.scene_color.get());
+            composite_pass.render(&render_shared);
+        }
     }
-
-    // translucent pass
-    {
-
-    }
-
-    // composite
-    {
-        composite_pass.update(&render_shared, render_shared.scene_color.get());
-        composite_pass.render(&render_shared);
-        cmd_list->end();
-    }
-
+    frame_context->command_end();
     // queue submit
-    frame_context->submit(img_index);
+    frame_context->submit(device_context, img_index);
 
     // present
     frame_context->present(img_index);
+    initialized = true;
 }
 
 void renderer::post_render()

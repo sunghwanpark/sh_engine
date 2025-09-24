@@ -76,32 +76,8 @@ void rhiRenderResource::upload(renderShared* rs, textureCache* tex_cache)
 	vbo = rs->context->create_buffer(vb_desc);
 	ibo = rs->context->create_buffer(ib_desc);
 
-	// staging buffer
-	auto staging_buffer = [](const u64 bytes) -> rhiBufferDesc
-		{
-			return rhiBufferDesc
-			{
-				.size = bytes,
-				.usage = rhiBufferUsage::transfer_src,
-				.memory = rhiMem::auto_host
-			};
-		};
-	auto staging_vbo = rs->context->create_buffer(staging_buffer(vb_bytes));
-	auto staging_ibo = rs->context->create_buffer(staging_buffer(ib_bytes));
-
-	// upload
-	auto p = staging_vbo->map();
-	std::memcpy(p, raw_data_ptr->vertices.data(), vb_bytes);
-	staging_vbo->unmap();
-
-	p = staging_ibo->map();
-	std::memcpy(p, raw_data_ptr->indices.data(), ib_bytes);
-	staging_ibo->unmap();
-
-	auto cmd = rs->context->begin_onetime_commands();
-	cmd->copy_buffer(staging_vbo.get(), 0, vbo.get(), 0, vb_bytes);
-	cmd->copy_buffer(staging_ibo.get(), 0, ibo.get(), 0, ib_bytes);
-	rs->context->submit_and_wait(std::move(cmd));
+	rs->upload_to_device(vbo.get(), raw_data_ptr->vertices.data(), vb_bytes, 0);
+	rs->upload_to_device(ibo.get(), raw_data_ptr->indices.data(), ib_bytes, 0);
 
 	rebuild_submeshes(tex_cache, raw_data_ptr.get());
 }

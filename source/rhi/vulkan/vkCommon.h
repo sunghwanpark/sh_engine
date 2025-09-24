@@ -343,6 +343,7 @@ inline VkPipelineStageFlags vk_pipeline_stage(rhiPipelineStage stage)
     case rhiPipelineStage::color_attachment_output: return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     case rhiPipelineStage::transfer: return VK_PIPELINE_STAGE_TRANSFER_BIT;
     case rhiPipelineStage::bottom_of_pipe: return VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    case rhiPipelineStage::compute_shader: return VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
     }
     return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 }
@@ -361,6 +362,8 @@ inline VkPipelineStageFlags2 vk_pipeline_stage2(rhiPipelineStage stage)
     case rhiPipelineStage::transfer: return VK_PIPELINE_STAGE_2_TRANSFER_BIT;
     case rhiPipelineStage::copy: return VK_PIPELINE_STAGE_2_COPY_BIT;
     case rhiPipelineStage::bottom_of_pipe: return VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
+    case rhiPipelineStage::all_graphics: return VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
+    case rhiPipelineStage::all_commands: return VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
     }
     return VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
 }

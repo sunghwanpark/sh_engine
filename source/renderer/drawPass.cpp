@@ -44,8 +44,7 @@ void drawPass::shutdown()
 
 void drawPass::render(renderShared* rs)
 {
-    auto& current_frame = rs->frame_context->get(image_index.value());
-    auto cmd_list = current_frame.cmd.get();
+    auto cmd_list = rs->frame_context->get_command_list(main_job_queue);
 
     begin(cmd_list);
     draw(cmd_list);

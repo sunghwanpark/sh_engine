@@ -1,5 +1,6 @@
 ﻿#include "vkDeviceContext.h"
 #include "vkCommon.h"
+#include "vkQueue.h"
 #include "vkTexture.h"
 #include "vkTextureCubemap.h"
 #include "vkBuffer.h"
@@ -11,6 +12,7 @@
 #include "vkImageViewCache.h"
 #include "vkBindlessTable.h"
 #include "rhi/rhiDescriptor.h"
+#include "rhi/rhiSubmitInfo.h"
 
 namespace
 {
@@ -238,6 +240,30 @@ vkDeviceContext::~vkDeviceContext()
     imageview_cache.reset();
     if (device != VK_NULL_HANDLE)
         vkDestroyDevice(device, nullptr);
+}
+
+std::unique_ptr<rhiCommandList> vkDeviceContext::create_commandlist(u32 queue_family)
+{
+    VkCommandPoolCreateInfo create_info
+    {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        .queueFamilyIndex = queue_family
+    };
+    VkCommandPool pool;
+    VK_CHECK_ERROR(vkCreateCommandPool(device, &create_info, nullptr, &pool));
+
+    VkCommandBufferAllocateInfo allocate_info
+    {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = pool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1
+    };
+    VkCommandBuffer buffer;
+    VK_CHECK_ERROR(vkAllocateCommandBuffers(device, &allocate_info, &buffer));
+
+    return std::make_unique<vkCommandList>(this, pool, buffer, false);
 }
 
 bool vkDeviceContext::verify_device() const
@@ -601,12 +627,14 @@ std::unique_ptr<rhiPipeline> vkDeviceContext::create_compute_pipeline(const rhiC
     return vk_create_compute_pipeline(device, desc, layout);
 }
 
-std::shared_ptr<rhiCommandList> vkDeviceContext::begin_onetime_commands()
+std::shared_ptr<rhiCommandList> vkDeviceContext::begin_onetime_commands(rhiQueueType t)
 {
+    assert(queue.contains(t));
+    
     const VkCommandPoolCreateInfo create_info{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-        .queueFamilyIndex = gfx_queue_family
+        .queueFamilyIndex = queue[t]->q_index()
     };
     VkCommandPool cmd_pool;
     VK_CHECK_ERROR(vkCreateCommandPool(device, &create_info, nullptr, &cmd_pool));
@@ -630,8 +658,10 @@ std::shared_ptr<rhiCommandList> vkDeviceContext::begin_onetime_commands()
     return std::make_shared<vkCommandList>(this, cmd_pool, cmd, true);
 }
 
-void vkDeviceContext::submit_and_wait(std::shared_ptr<rhiCommandList> cmd)
+void vkDeviceContext::submit_and_wait(std::shared_ptr<rhiCommandList> cmd, rhiQueueType t)
 {
+    assert(queue.contains(t));
+
     auto vk_cmdlst = std::dynamic_pointer_cast<vkCommandList>(cmd);
     assert(vk_cmdlst);
     auto vk_cmd = vk_cmdlst->get_cmd_buffer();
@@ -647,7 +677,9 @@ void vkDeviceContext::submit_and_wait(std::shared_ptr<rhiCommandList> cmd)
         .commandBufferCount = 1,
         .pCommandBuffers = &vk_cmd
     };
-    VK_CHECK_ERROR(vkQueueSubmit(graphics_queue, 1, &submit_info, submit_fence));
+    auto q = reinterpret_cast<VkQueue>(queue[t]->handle());
+    assert(q != VK_NULL_HANDLE);
+    VK_CHECK_ERROR(vkQueueSubmit(q, 1, &submit_info, submit_fence));
     VK_CHECK_ERROR(vkWaitForFences(device, 1, &submit_fence, VK_TRUE, UINT64_MAX));
     vkDestroyFence(device, submit_fence, nullptr);
 
@@ -656,6 +688,71 @@ void vkDeviceContext::submit_and_wait(std::shared_ptr<rhiCommandList> cmd)
         vkFreeCommandBuffers(device, vk_cmdlst->get_cmd_pool(), 1, &vk_cmd);
         vk_cmdlst.reset();
     }
+}
+
+void vkDeviceContext::submit(rhiQueueType type, const rhiSubmitInfo& info)
+{
+    assert(queue.contains(type));
+
+    std::vector<VkSemaphoreSubmitInfo> wait_semaphores;
+    wait_semaphores.reserve(info.waits.size());
+    for (auto& wait : info.waits)
+    {
+        auto* semaphore = static_cast<vkSemaphore*>(wait.semaphore);
+        assert(semaphore);
+        wait_semaphores.push_back(VkSemaphoreSubmitInfo{
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                .semaphore = semaphore->handle(),
+                .value = wait.value,
+                .stageMask = vk_pipeline_stage2(wait.stage),
+                .deviceIndex = 0
+            });
+    }
+
+    std::vector<VkSemaphoreSubmitInfo> signal_semaphores;
+    signal_semaphores.reserve(info.signals.size());
+    for (auto& signal : info.signals)
+    {
+        auto* semaphore = static_cast<vkSemaphore*>(signal.semaphore);
+        assert(semaphore);
+        signal_semaphores.push_back(VkSemaphoreSubmitInfo{
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                .semaphore = semaphore->handle(),
+                .value = signal.value,
+                .stageMask = vk_pipeline_stage2(signal.stage),
+                .deviceIndex = 0
+            });
+    }
+
+    std::vector<VkCommandBufferSubmitInfo> cmds;
+    cmds.reserve(info.cmd_lists.size());
+    for (auto& cmd : info.cmd_lists)
+    {
+        auto* cmd_list = static_cast<vkCommandList*>(cmd);
+        assert(cmd_list);
+        cmds.push_back(VkCommandBufferSubmitInfo{
+                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+                .commandBuffer = cmd_list->get_cmd_buffer(),
+                .deviceMask = 0
+            });
+    }
+
+    const VkSubmitInfo2 submit_info{
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+        .waitSemaphoreInfoCount = static_cast<u32>(wait_semaphores.size()),
+        .pWaitSemaphoreInfos = wait_semaphores.data(),
+        .commandBufferInfoCount = static_cast<u32>(cmds.size()),
+        .pCommandBufferInfos = cmds.data(),
+        .signalSemaphoreInfoCount = static_cast<u32>(signal_semaphores.size()),
+        .pSignalSemaphoreInfos = signal_semaphores.data()
+    };
+
+    VkFence vk_fence = VK_NULL_HANDLE;
+    if (info.fence)
+        vk_fence = static_cast<vkFence*>(info.fence)->handle();
+
+    VkQueue q = reinterpret_cast<VkQueue>(queue[type]->handle());
+    VK_CHECK_ERROR(vkQueueSubmit2(q, 1, &submit_info, vk_fence));
 }
 
 void vkDeviceContext::wait(rhiFence* f)
@@ -674,12 +771,13 @@ void vkDeviceContext::reset(rhiFence* f)
     vkResetFences(device, 1, &vk_fence);
 }
 
-void vkDeviceContext::init_after_createdevice(VkInstance instance, VkQueue graphics_queue, const u32 graphics_queue_family)
+void vkDeviceContext::create_imageview_cache()
 {
     imageview_cache = std::make_shared<vkImageViewCache>(device);
-    this->graphics_queue = graphics_queue;
-    gfx_queue_family = graphics_queue_family;
+}
 
+void vkDeviceContext::create_vma_allocator(VkInstance instance)
+{
     VmaVulkanFunctions vma_funcs{};
     vma_funcs.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
     vma_funcs.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
@@ -691,6 +789,15 @@ void vkDeviceContext::init_after_createdevice(VkInstance instance, VkQueue graph
         .instance = instance,
     };
     VK_CHECK_ERROR(vmaCreateAllocator(&vma_alloc_crate_info, &allocator));
+}
+
+void vkDeviceContext::create_queue(const std::unordered_map<rhiQueueType, u32>& queue_families)
+{
+    for (const auto& [key, value] : queue_families)
+    {
+        auto q = std::make_shared<vkQueue>(device, key, value);
+        queue.emplace(key, std::move(q));
+    }
 }
 
 rhiDescriptorSetLayout vkDeviceContext::create_descriptor_indexing_set_layout(const rhiDescriptorIndexing& desc, const u32 set_index)

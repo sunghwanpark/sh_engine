@@ -100,12 +100,9 @@ void compositePass::build_pipeline(renderShared* rs)
 
 void compositePass::update(renderShared* rs, rhiTexture* scene_color)
 {
-    auto& current_frame = rs->frame_context->get(image_index.value());
-    auto& cmd_list = current_frame.cmd;
-    
     update_renderinfo(rs);
     update_descriptors(rs, scene_color);
-    update_cbuffer(rs, cmd_list.get());
+    update_cbuffer(rs);
 }
 
 void compositePass::update_descriptors(renderShared* rs, rhiTexture* scene_color)
@@ -172,16 +169,32 @@ void compositePass::update_renderinfo(renderShared* rs)
     render_info.depth_attachment = std::nullopt;
 }
 
-void compositePass::update_cbuffer(renderShared * rs, rhiCommandList* cmd_list)
+void compositePass::update_cbuffer(renderShared * rs)
 {
     const compositeCB ccb{
         .inv_rt = { 1.0f / draw_context->w, 1.0f / draw_context->h },
         .exposure = 1.f,
         .pad = 0.f
     };
-    cmd_list->buffer_barrier(composite_buffers[image_index.value()].get(), rhiPipelineStage::fragment_shader, rhiPipelineStage::transfer, rhiAccessFlags::uniform_read, rhiAccessFlags::transfer_write, 0, sizeof(compositeCB));
-    rs->upload_to_device(cmd_list, composite_buffers[image_index.value()].get(), &ccb, sizeof(compositeCB));
-    cmd_list->buffer_barrier(composite_buffers[image_index.value()].get(), rhiPipelineStage::transfer, rhiPipelineStage::fragment_shader, rhiAccessFlags::transfer_write, rhiAccessFlags::uniform_read, 0, sizeof(compositeCB));
+    rs->buffer_barrier(composite_buffers[image_index.value()].get(), rhiBufferBarrierDescription{
+        .src_stage = rhiPipelineStage::fragment_shader,
+        .dst_stage = rhiPipelineStage::transfer,
+        .src_access = rhiAccessFlags::uniform_read,
+        .dst_access = rhiAccessFlags::transfer_write,
+        .size = sizeof(compositeCB),
+        .src_queue = rs->context->get_queue_family_index(rhiQueueType::graphics),
+        .dst_queue = rs->context->get_queue_family_index(rhiQueueType::transfer)
+        });
+    rs->upload_to_device(composite_buffers[image_index.value()].get(), &ccb, sizeof(compositeCB));
+    rs->buffer_barrier(composite_buffers[image_index.value()].get(), rhiBufferBarrierDescription{
+        .src_stage = rhiPipelineStage::transfer,
+        .dst_stage = rhiPipelineStage::fragment_shader,
+        .src_access = rhiAccessFlags::transfer_write,
+        .dst_access = rhiAccessFlags::uniform_read,
+        .size = sizeof(compositeCB),
+        .src_queue = rs->context->get_queue_family_index(rhiQueueType::graphics),
+        .dst_queue = rs->context->get_queue_family_index(rhiQueueType::transfer)
+        });
 }
 
 void compositePass::create_composite_cbuffer(renderShared* rs)

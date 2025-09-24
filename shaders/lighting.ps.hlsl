@@ -176,7 +176,8 @@ float D_GGX(float noh, float a)
 }
 float V_SmithGGX(float nov, float nol, float a)
 {
-    float k = (a + 1.0); k = (k * k) * 0.125; // ~(a^2)/2
+    float k = (a + 1.0); 
+    k = (k * k) * 0.125; // ~(a^2)/2
     float gv = nov / max(nov * (1.0 - k) + k, 1e-6);
     float gl = nol / max(nol * (1.0 - k) + k, 1e-6);
     return gv * gl;

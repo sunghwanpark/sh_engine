@@ -39,13 +39,13 @@ void lightingPass::link_textures(textureContext& context)
 	};
 }
 
-void lightingPass::update(renderShared* rs, rhiCommandList* cmd, camera* camera, const vec3& light_dir, const std::vector<mat4>& light_viewprojs, const std::vector<f32>& cascade_splits, const u32 shadow_resolution, const u32 cubemap_mipcount)
+void lightingPass::update(renderShared* rs, camera* camera, const vec3& light_dir, const std::vector<mat4>& light_viewprojs, const std::vector<f32>& cascade_splits, const u32 shadow_resolution, const u32 cubemap_mipcount)
 { 
-	update_cbuffers(rs, cmd, camera, light_dir, light_viewprojs, cascade_splits, shadow_resolution, cubemap_mipcount);
+	update_cbuffers(rs, camera, light_dir, light_viewprojs, cascade_splits, shadow_resolution, cubemap_mipcount);
 	update_descriptors(rs);
 }
 
-void lightingPass::update_cbuffers(renderShared* rs, rhiCommandList* cmd, camera* camera, const vec3& light_dir, const std::vector<mat4>& light_viewprojs, const std::vector<f32>& cascade_splits, const u32 shadow_resolution, const u32 cubemap_mipcount)
+void lightingPass::update_cbuffers(renderShared* rs, camera* camera, const vec3& light_dir, const std::vector<mat4>& light_viewprojs, const std::vector<f32>& cascade_splits, const u32 shadow_resolution, const u32 cubemap_mipcount)
 {
 	cam c{
 		.inv_proj = glm::inverse(camera->proj(vec2(draw_context->w, draw_context->h))),
@@ -67,19 +67,31 @@ void lightingPass::update_cbuffers(renderShared* rs, rhiCommandList* cmd, camera
 	};
 
 	// camera cbuffer
-	cmd->buffer_barrier(camera_cbuffer[image_index.value()].get(), rhiPipelineStage::fragment_shader, rhiPipelineStage::copy, rhiAccessFlags::uniform_read, rhiAccessFlags::transfer_write, 0, sizeof(cam));
-	rs->upload_to_device(cmd, camera_cbuffer[image_index.value()].get(), &c, sizeof(cam));
-	cmd->buffer_barrier(camera_cbuffer[image_index.value()].get(), rhiPipelineStage::copy, rhiPipelineStage::fragment_shader, rhiAccessFlags::transfer_write, rhiAccessFlags::uniform_read, 0, sizeof(cam));
+	rs->buffer_barrier(camera_cbuffer[image_index.value()].get(), rhiBufferBarrierDescription{
+		rhiPipelineStage::fragment_shader, rhiPipelineStage::copy, rhiAccessFlags::uniform_read, rhiAccessFlags::transfer_write, 0, sizeof(cam), 
+		rs->context->get_queue_family_index(rhiQueueType::graphics), rs->context->get_queue_family_index(rhiQueueType::transfer)});
+	rs->upload_to_device(camera_cbuffer[image_index.value()].get(), &c, sizeof(cam));
+	rs->buffer_barrier(camera_cbuffer[image_index.value()].get(), rhiBufferBarrierDescription{
+		rhiPipelineStage::copy, rhiPipelineStage::fragment_shader, rhiAccessFlags::transfer_write, rhiAccessFlags::uniform_read, 0, sizeof(cam),
+		rs->context->get_queue_family_index(rhiQueueType::graphics), rs->context->get_queue_family_index(rhiQueueType::transfer) });
 
 	// light cbuffer
-	cmd->buffer_barrier(light_cbuffer[image_index.value()].get(), rhiPipelineStage::fragment_shader, rhiPipelineStage::copy, rhiAccessFlags::uniform_read, rhiAccessFlags::transfer_write, 0, sizeof(light));
-	rs->upload_to_device(cmd, light_cbuffer[image_index.value()].get(), &l, sizeof(light));
-	cmd->buffer_barrier(light_cbuffer[image_index.value()].get(), rhiPipelineStage::copy, rhiPipelineStage::fragment_shader, rhiAccessFlags::transfer_write, rhiAccessFlags::uniform_read, 0, sizeof(light));
+	rs->buffer_barrier(light_cbuffer[image_index.value()].get(), rhiBufferBarrierDescription{ 
+		rhiPipelineStage::fragment_shader, rhiPipelineStage::copy, rhiAccessFlags::uniform_read, rhiAccessFlags::transfer_write, 0, sizeof(light),
+		rs->context->get_queue_family_index(rhiQueueType::graphics), rs->context->get_queue_family_index(rhiQueueType::transfer) });
+	rs->upload_to_device(light_cbuffer[image_index.value()].get(), &l, sizeof(light));
+	rs->buffer_barrier(light_cbuffer[image_index.value()].get(), rhiBufferBarrierDescription{
+		rhiPipelineStage::copy, rhiPipelineStage::fragment_shader, rhiAccessFlags::transfer_write, rhiAccessFlags::uniform_read, 0, sizeof(light),
+		rs->context->get_queue_family_index(rhiQueueType::graphics), rs->context->get_queue_family_index(rhiQueueType::transfer) });
 
 	// ibl cbuffer
-	cmd->buffer_barrier(ibl_param_cbuffer[image_index.value()].get(), rhiPipelineStage::fragment_shader, rhiPipelineStage::copy, rhiAccessFlags::uniform_read, rhiAccessFlags::transfer_write, 0, sizeof(iblParams));
-	rs->upload_to_device(cmd, ibl_param_cbuffer[image_index.value()].get(), &ibl, sizeof(iblParams));
-	cmd->buffer_barrier(ibl_param_cbuffer[image_index.value()].get(), rhiPipelineStage::copy, rhiPipelineStage::fragment_shader, rhiAccessFlags::transfer_write, rhiAccessFlags::uniform_read, 0, sizeof(iblParams));
+	rs->buffer_barrier(ibl_param_cbuffer[image_index.value()].get(), rhiBufferBarrierDescription{ 
+		rhiPipelineStage::fragment_shader, rhiPipelineStage::copy, rhiAccessFlags::uniform_read, rhiAccessFlags::transfer_write, 0, sizeof(iblParams),
+		rs->context->get_queue_family_index(rhiQueueType::graphics), rs->context->get_queue_family_index(rhiQueueType::transfer) });
+	rs->upload_to_device(ibl_param_cbuffer[image_index.value()].get(), &ibl, sizeof(iblParams));
+	rs->buffer_barrier(ibl_param_cbuffer[image_index.value()].get(), rhiBufferBarrierDescription{
+		rhiPipelineStage::copy, rhiPipelineStage::fragment_shader, rhiAccessFlags::transfer_write, rhiAccessFlags::uniform_read, 0, sizeof(iblParams),
+		rs->context->get_queue_family_index(rhiQueueType::graphics), rs->context->get_queue_family_index(rhiQueueType::transfer) });
 }
 
 void lightingPass::build_layouts(renderShared* rs)

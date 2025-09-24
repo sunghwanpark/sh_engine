@@ -52,6 +52,7 @@ public:
     void update(drawUpdateContext* update_context) override;
 
 public:
+    void precompile_dispatch();
     rhiTextureCubeMap* get_irradiance_map() { return irradiance_cubemap.get(); }
     rhiTextureCubeMap* get_specular_map() { return specular_cubemap.get(); }
     rhiTexture* get_brdf_lut_map() { return brdf_lut.get(); }
@@ -66,14 +67,17 @@ protected:
     void build_pipeline(renderShared* rs) override;
 
 private:
-    void precompile_dispatch();
-
-private:
+    std::unique_ptr<rhiTexture> equirect_tex;
     std::shared_ptr<rhiTextureCubeMap> sky_cubemap;
     std::shared_ptr<rhiTextureCubeMap> irradiance_cubemap;
     std::shared_ptr<rhiTextureCubeMap> specular_cubemap;
     std::shared_ptr<rhiTexture> brdf_lut;
     std::unique_ptr<rhiBuffer> irradiance_cb;
+    
+    std::unique_ptr<rhiPipeline> cs_pipeline;
+    std::unique_ptr<rhiPipeline> irr_cs_pipeline;
+    std::unique_ptr<rhiPipeline> spec_pipeline;
+    std::unique_ptr<rhiPipeline> brdf_cs_pipeline;
 
     rhiDescriptorSetLayout set_fragment_layout;
     bool is_first_frame = true;

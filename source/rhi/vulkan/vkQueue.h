@@ -1,13 +1,11 @@
 #pragma once
 
 #include "pch.h"
+#include "rhi/rhiQueue.h"
 
-class vkQueue
+struct rhiSubmitInfo;
+class vkQueue : public rhiQueue
 {
 public:
-	void create_queue(VkDevice device, const u32 queue_family_index);
-	VkQueue handle() { return queue; }
-
-private:
-	VkQueue queue;
+	vkQueue(VkDevice device, rhiQueueType t, const u32 queue_family_index);
 };

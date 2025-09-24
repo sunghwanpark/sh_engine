@@ -43,7 +43,7 @@ private:
     void create_composite_cbuffer(renderShared* rs);
     void update_descriptors(renderShared* rs, rhiTexture* scene_color);
     void update_renderinfo(renderShared* rs);
-    void update_cbuffer(renderShared* rs, rhiCommandList* cmd_list);
+    void update_cbuffer(renderShared* rs);
 
 private:
     std::vector<rhiRenderTargetView> swapchain_views;

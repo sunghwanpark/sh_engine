@@ -19,6 +19,24 @@ struct rhiDrawIndexedIndirect
     u32 first_instance;
 };
 
+enum class rhiQueueType : u8
+{
+    none = 1u << 0,
+    graphics = 1u << 1,
+    compute = 1u << 2,
+    transfer = 1u << 3,
+    present = 1u << 4
+};
+
+inline rhiQueueType operator|(rhiQueueType a, rhiQueueType b)
+{
+    return static_cast<rhiQueueType>(static_cast<u32>(a) | static_cast<u32>(b));
+}
+
+inline rhiQueueType operator&(rhiQueueType a, rhiQueueType b)
+{
+    return static_cast<rhiQueueType>(static_cast<u32>(a) & static_cast<u32>(b));
+}
 enum class rhiBufferUsage : u32
 {
     vertex = 1u << 0,
@@ -93,6 +111,8 @@ enum class rhiPipelineStage : u32
     color_attachment_output = 1u << 8,
     transfer = 1u << 9,
     copy = 1u << 10,
+    all_graphics = 1u << 11,
+    all_commands = 1u << 12,
     bottom_of_pipe = 1u << 31,
 };
 

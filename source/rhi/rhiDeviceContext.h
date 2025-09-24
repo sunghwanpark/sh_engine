@@ -11,11 +11,15 @@
 class rhiCommandList;
 class rhiFence;
 class rhiSemaphore;
+class rhiQueue;
+struct rhiSubmitInfo;
 
 class rhiDeviceContext 
 {
 public:
     virtual ~rhiDeviceContext() = default;
+
+    virtual std::unique_ptr<rhiCommandList> create_commandlist(u32 queue_family) = 0;
     virtual std::unique_ptr<rhiBindlessTable> create_bindless_table(const rhiBindlessDesc& desc, const u32 set_index = 0) = 0;
     virtual std::unique_ptr<rhiBuffer> create_buffer(const rhiBufferDesc& desc) = 0;
     virtual std::unique_ptr<rhiTexture> create_texture(const rhiTextureDesc& desc) = 0;
@@ -35,11 +39,20 @@ public:
     virtual rhiPipelineLayout create_pipeline_layout(std::vector<rhiDescriptorSetLayout> set_layouts, u32 push_constant_bytes, void** keep_alive_out) = 0;
     virtual std::unique_ptr<rhiPipeline> create_graphics_pipeline(const rhiGraphicsPipelineDesc& desc, const rhiPipelineLayout& layout) = 0;
     virtual std::unique_ptr<rhiPipeline> create_compute_pipeline(const rhiComputePipelineDesc& desc, const rhiPipelineLayout& layout) = 0;
-    virtual std::shared_ptr<rhiCommandList> begin_onetime_commands() = 0;
-    virtual void submit_and_wait(std::shared_ptr<rhiCommandList> cmd) = 0;
+    virtual std::shared_ptr<rhiCommandList> begin_onetime_commands(rhiQueueType t = rhiQueueType::graphics) = 0;
+    virtual void submit_and_wait(std::shared_ptr<rhiCommandList> cmd, rhiQueueType t = rhiQueueType::graphics) = 0;
+    virtual void submit(rhiQueueType type, const rhiSubmitInfo& info) = 0;
     virtual void wait(class rhiFence* f) = 0;
     virtual void reset(class rhiFence* f) = 0;
 
+    const u32 get_queue_family_index(rhiQueueType type) const;
+    rhiQueue* get_queue(rhiQueueType type) const;
+    rhiQueueType get_queue_type(const u32 q_family_idx);
+    const std::unordered_map<rhiQueueType, std::shared_ptr<rhiQueue>>& get_queues() const { return queue; }
+
 public:
     glm::vec2 viewport_size;
+
+protected:
+    std::unordered_map<rhiQueueType, std::shared_ptr<rhiQueue>> queue;
 };

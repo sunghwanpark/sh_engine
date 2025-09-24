@@ -8,6 +8,7 @@
 #include "rhi/rhiPipeline.h"
 #include "rhi/rhiRenderpass.h"
 #include "rhi/rhiBuffer.h"
+#include "rhi/rhiSynchroize.h"
 #include "vkBuffer.h"
 
 vkCommandList::vkCommandList(vkDeviceContext* context, VkCommandPool pool, VkCommandBuffer cmd_buffer, bool is_transient)
@@ -277,6 +278,45 @@ void vkCommandList::generate_mips_compute(rhiTexture* tex, const rhiGenMipsDesc&
     // todo
 }
 
+void vkCommandList::image_barrier(rhiTexture* tex, const rhiImageBarrierDescription& desc)
+{
+    auto vk_tex = static_cast<vkTexture*>(tex);
+
+    u32 level_count = desc.level_count;
+    u32 layer_count = desc.layer_count;
+    if (level_count == 0)
+        level_count = tex->desc.mips;
+    if (layer_count == 0)
+        layer_count = tex->desc.layers;
+
+    const VkImageMemoryBarrier2 barrier{
+       .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+       .srcStageMask = vk_pipeline_stage2(desc.src_stage),
+       .srcAccessMask = vk_access_flags2(desc.src_access),
+       .dstStageMask = vk_pipeline_stage2(desc.dst_stage),
+       .dstAccessMask = vk_access_flags2(desc.dst_access),
+       .oldLayout = vk_layout(desc.old_layout),
+       .newLayout = vk_layout(desc.new_layout),
+       .srcQueueFamilyIndex = desc.src_queue == desc.dst_queue ? VK_QUEUE_FAMILY_IGNORED : desc.src_queue,
+       .dstQueueFamilyIndex = desc.src_queue == desc.dst_queue ? VK_QUEUE_FAMILY_IGNORED : desc.dst_queue,
+       .image = vk_tex->get_image(),
+       .subresourceRange = {
+           .aspectMask = vk_aspect_from_format(vk_tex->desc.format),
+           .baseMipLevel = desc.base_mip,
+           .levelCount = level_count,
+           .baseArrayLayer = desc.base_layer,
+           .layerCount = layer_count
+       }
+    };
+
+    const VkDependencyInfo dependency{
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &barrier
+    };
+    vkCmdPipelineBarrier2(cmd_buffer, &dependency);
+}
+
 void vkCommandList::image_barrier(rhiTexture* tex, rhiImageLayout old_layout, rhiImageLayout new_layout, u32 base_mip, u32 level_count, u32 base_layer, u32 layer_count, bool is_same_stage)
 {
     assert(cmd_buffer != VK_NULL_HANDLE);
@@ -367,7 +407,7 @@ void vkCommandList::image_barrier(rhiTextureCubeMap* tex, rhiImageLayout old_lay
     vkCmdPipelineBarrier2(cmd_buffer, &dependency);
 }
 
-void vkCommandList::buffer_barrier(rhiBuffer* buf, rhiPipelineStage src_stage, rhiPipelineStage dst_stage, rhiAccessFlags src_access, rhiAccessFlags dst_access, u32 offset, u64 size)
+void vkCommandList::buffer_barrier(rhiBuffer* buf, const rhiBufferBarrierDescription& desc)
 {
     assert(cmd_buffer != VK_NULL_HANDLE);
     assert(buf);
@@ -377,15 +417,15 @@ void vkCommandList::buffer_barrier(rhiBuffer* buf, rhiPipelineStage src_stage, r
     const VkBufferMemoryBarrier2 barrier{
         .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
         .pNext = nullptr,
-        .srcStageMask = vk_pipeline_stage2(src_stage),
-        .srcAccessMask = vk_access_flags2(src_access),
-        .dstStageMask = vk_pipeline_stage2(dst_stage),
-        .dstAccessMask = vk_access_flags2(dst_access),
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .srcStageMask = vk_pipeline_stage2(desc.src_stage),
+        .srcAccessMask = vk_access_flags2(desc.src_access),
+        .dstStageMask = vk_pipeline_stage2(desc.dst_stage),
+        .dstAccessMask = vk_access_flags2(desc.dst_access),
+        .srcQueueFamilyIndex = desc.src_queue == desc.dst_queue ? VK_QUEUE_FAMILY_IGNORED : desc.src_queue,
+        .dstQueueFamilyIndex = desc.src_queue == desc.dst_queue ? VK_QUEUE_FAMILY_IGNORED : desc.dst_queue,
         .buffer = vk_buf,
-        .offset = static_cast<VkDeviceSize>(offset),
-        .size = static_cast<VkDeviceSize>(size),
+        .offset = static_cast<VkDeviceSize>(desc.offset),
+        .size = static_cast<VkDeviceSize>(desc.size),
     };
 
     const VkDependencyInfo dependency{
