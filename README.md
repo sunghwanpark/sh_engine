@@ -15,6 +15,8 @@
 - **TODO**
   - Translucent Rendering
 
+![Sponza Scene](docs/sponza.png)
+
 ## 4. Open Source Dependencies
 - [Vulkan Memory Allocator (VMA)](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 - [cgltf](https://github.com/jkuhlmann/cgltf)
