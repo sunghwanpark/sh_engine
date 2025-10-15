@@ -187,14 +187,14 @@ void rhiFrameContext::present(const u32 image_index)
 
 rhiCommandList* rhiFrameContext::get_command_list(u32 q_family_idx)
 {
-    assert(frames_by_index.contains(q_family_idx));
+    ASSERT(frames_by_index.contains(q_family_idx));
     auto frames = frames_by_index[q_family_idx].get();
     return (*frames)[frame_index].get();
 }
 
 rhiCommandList* rhiFrameContext::get_command_list(rhiQueueType type)
 {
-    assert(queue_frame.contains(type));
+    ASSERT(queue_frame.contains(type));
 
     auto& frames = queue_frame.at(type).get();
     return frames[frame_index].get();

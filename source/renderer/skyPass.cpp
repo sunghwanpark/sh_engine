@@ -21,7 +21,7 @@ void skyPass::initialize(const drawInitContext& context)
 
 void skyPass::precompile_dispatch()
 {
-    auto rs = draw_context->rs;
+    auto rs = init_context->rs;
     const u32 cube_mip = static_cast<u32>(std::floor(std::log2(cube_resolution))) + 1;
 
     // ************************************* create sky cube map *************************************
@@ -81,7 +81,7 @@ void skyPass::precompile_dispatch()
             .create_flags = rhiDescriptorPoolCreateFlags::update_after_bind
         }, 4);
 
-    auto cs_pipeline_layout = rs->context->create_pipeline_layout({ cs_descriptor_layout1, cs_descriptor_layout2 }, sizeof(convertCB), nullptr);
+    auto cs_pipeline_layout = rs->context->create_pipeline_layout({ cs_descriptor_layout1, cs_descriptor_layout2 }, { { rhiShaderStage::compute, sizeof(convertCB) } });
     auto cs_descriptor_sets1 = rs->context->allocate_descriptor_sets(cs_descriptor_pool, { cs_descriptor_layout1 });
     auto cs_descriptor_sets2 = rs->context->allocate_descriptor_indexing_sets(cs_descriptor_pool, { cs_descriptor_layout2 }, { cube_mip });
     
@@ -127,7 +127,7 @@ void skyPass::precompile_dispatch()
         .mips = cube_mip,
         .format = rhiFormat::RGBA32_SFLOAT
     };
-    sky_cubemap = draw_context->rs->context->create_texture_cubemap(d);
+    sky_cubemap = init_context->rs->context->create_texture_cubemap(d);
 
     // compute pipeline
     std::vector<rhiDescriptorImageInfo> image_infos;
@@ -220,7 +220,7 @@ void skyPass::precompile_dispatch()
             },
         }, 4);
 
-    auto irr_pipeline_layout = rs->context->create_pipeline_layout({ irr_descriptor_layout }, 0, nullptr);
+    auto irr_pipeline_layout = rs->context->create_pipeline_layout({ irr_descriptor_layout });
     auto irr_descriptor_sets = rs->context->allocate_descriptor_sets(irr_descriptor_pool, { irr_descriptor_layout });
 
     const rhiWriteDescriptor irr_sky_cubemap_desc{
@@ -252,7 +252,7 @@ void skyPass::precompile_dispatch()
         .mips = 1,
         .format = rhiFormat::RGBA16F,
     };
-    irradiance_cubemap = draw_context->rs->context->create_texture_cubemap(irr_tex_desc);
+    irradiance_cubemap = init_context->rs->context->create_texture_cubemap(irr_tex_desc);
 
     // compute pipeline
     const rhiWriteDescriptor irr_uav_desc{
@@ -365,7 +365,7 @@ void skyPass::precompile_dispatch()
             .create_flags = rhiDescriptorPoolCreateFlags::update_after_bind
         }, 4);
 
-    auto spec_pipeline_layout = rs->context->create_pipeline_layout({ spec_descriptor_layout1, spec_descriptor_layout2 }, sizeof(specularCB), nullptr);
+    auto spec_pipeline_layout = rs->context->create_pipeline_layout({ spec_descriptor_layout1, spec_descriptor_layout2 }, { { rhiShaderStage::compute, sizeof(specularCB) } }, nullptr);
     auto spec_descriptor_sets1 = rs->context->allocate_descriptor_sets(spec_descriptor_pool, { spec_descriptor_layout1 });
     auto spec_descriptor_sets2 = rs->context->allocate_descriptor_indexing_sets(spec_descriptor_pool, { spec_descriptor_layout2 }, { cube_mip });
 
@@ -408,7 +408,7 @@ void skyPass::precompile_dispatch()
         .mips = cube_mip,
         .format = rhiFormat::RGBA16F
     };
-    specular_cubemap = draw_context->rs->context->create_texture_cubemap(spec_desc);
+    specular_cubemap = init_context->rs->context->create_texture_cubemap(spec_desc);
 
     // compute pipeline
     std::vector<rhiDescriptorImageInfo> spec_image_infos;
@@ -477,7 +477,7 @@ void skyPass::precompile_dispatch()
             },
         }, 4);
 
-    auto brdf_pipeline_layout = rs->context->create_pipeline_layout({ brdf_descriptor_layout }, sizeof(brdfCB), nullptr);
+    auto brdf_pipeline_layout = rs->context->create_pipeline_layout({ brdf_descriptor_layout }, { { rhiShaderStage::compute, sizeof(brdfCB) } }, nullptr);
     auto brdf_descriptor_sets = rs->context->allocate_descriptor_sets(brdf_descriptor_pool, { brdf_descriptor_layout });
 
     const rhiTextureDesc brdf_tex_desc{
@@ -488,7 +488,7 @@ void skyPass::precompile_dispatch()
         .format = rhiFormat::RG16_SFLOAT,
         .usage = rhiTextureUsage::storage | rhiTextureUsage::sampled
     };
-    brdf_lut = draw_context->rs->context->create_texture(brdf_tex_desc);
+    brdf_lut = init_context->rs->context->create_texture(brdf_tex_desc);
 
     // compute pipeline
     const rhiWriteDescriptor brdf_uav_desc{
@@ -553,12 +553,13 @@ void skyPass::build_layouts(renderShared* rs)
             },
         }
     );
-    create_pipeline_layout(rs, { set_fragment_layout }, 0);
+    create_pipeline_layout(rs, { set_fragment_layout });
     create_descriptor_sets(rs, { set_fragment_layout });
 }
 
 void skyPass::build_attachments(rhiDeviceContext* context)
 {
+    render_info.renderpass_name = "sky";
     render_info.samples = rhiSampleCount::x1;
     render_info.color_formats = { rhiFormat::RGBA8_UNORM };
     render_info.depth_format = std::nullopt;
@@ -570,8 +571,8 @@ void skyPass::build_attachments(rhiDeviceContext* context)
 
     const rhiTextureDesc td_color
     {
-        .width = draw_context->w,
-        .height = draw_context->h,
+        .width = init_context->w,
+        .height = init_context->h,
         .layers = 1,
         .mips = 1,
         .format = rhiFormat::RGBA8_UNORM,
@@ -579,7 +580,7 @@ void skyPass::build_attachments(rhiDeviceContext* context)
         .is_depth = false
     };
     {
-        const auto sky_context = static_cast<skyInitContext*>(draw_context.get());
+        const auto sky_context = static_cast<skyInitContext*>(init_context.get());
         const auto scene_color = sky_context->scene_color.lock();
         rhiRenderTargetView rtview{
             .texture = scene_color.get(),
@@ -613,7 +614,7 @@ void skyPass::build_pipeline(renderShared* rs)
 void skyPass::update(drawUpdateContext* update_context)
 {
     skyUpdateContext* context = static_cast<skyUpdateContext*>(update_context);
-    assert(context);
+    ASSERT(context);
 
     const rhiDescriptorBufferInfo buffer_info{
         .buffer = context->global_buf,
@@ -646,7 +647,7 @@ void skyPass::update(drawUpdateContext* update_context)
     };
 
     const rhiDescriptorImageInfo cube_sampler_image_info{
-        .sampler = draw_context->rs->samplers.linear_clamp.get()
+        .sampler = init_context->rs->samplers.linear_clamp.get()
     };
     const rhiWriteDescriptor cube_sampler_write_desc{
         .set = descriptor_sets[image_index.value()][0],
@@ -656,7 +657,7 @@ void skyPass::update(drawUpdateContext* update_context)
         .type = rhiDescriptorType::sampler,
         .image = { cube_sampler_image_info }
     };
-    draw_context->rs->context->update_descriptors({ write_desc, cube_desc, cube_sampler_write_desc });
+    init_context->rs->context->update_descriptors({ write_desc, cube_desc, cube_sampler_write_desc });
 }
 
 void skyPass::draw(rhiCommandList* cmd)
@@ -666,7 +667,7 @@ void skyPass::draw(rhiCommandList* cmd)
 
 void skyPass::begin_barrier(rhiCommandList* cmd)
 {
-    const auto sky_context = static_cast<skyInitContext*>(draw_context.get());
+    const auto sky_context = static_cast<skyInitContext*>(init_context.get());
     const auto scene_color = sky_context->scene_color.lock();
     if (is_first_frame)
     {

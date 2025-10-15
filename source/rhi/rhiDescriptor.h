@@ -91,3 +91,9 @@ struct rhiDescriptorIndexing
 {
     std::vector<rhiDescriptorIndexingElement> elements;
 };
+
+struct rhiPushConstant
+{
+    rhiShaderStage stage;
+    u32 bytes;
+};

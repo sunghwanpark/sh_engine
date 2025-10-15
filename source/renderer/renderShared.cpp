@@ -79,8 +79,8 @@ void renderShared::buffer_barrier(rhiBuffer* buffer, const rhiBufferBarrierDescr
 
 void renderShared::upload_to_device(rhiBuffer* buffer, const void* src, const u32 bytes, const u32 dst_offset)
 {
-    assert(dst_offset + bytes <= buffer->size());
-    assert((dst_offset % 4) == 0 && (bytes % 4) == 0);
+    ASSERT(dst_offset + bytes <= buffer->size());
+    ASSERT((dst_offset % 4) == 0 && (bytes % 4) == 0);
 
     auto staging_buffer = context->create_buffer(rhiBufferDesc
         {

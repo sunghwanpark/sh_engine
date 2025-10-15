@@ -55,7 +55,7 @@ void rhiRenderResource::upload(renderShared* rs, textureCache* tex_cache)
 	if (is_uploaded())
 		return;
 
-	assert(!raw_data.expired());
+	ASSERT(!raw_data.expired());
 	auto raw_data_ptr = raw_data.lock();
 	const u64 vb_bytes = static_cast<u64>(raw_data_ptr->vertices.size()) * sizeof(glTFVertex);
 	const u64 ib_bytes = static_cast<u64>(raw_data_ptr->indices.size()) * sizeof(u32);
@@ -77,8 +77,8 @@ void rhiRenderResource::upload(renderShared* rs, textureCache* tex_cache)
 	vbo = rs->context->create_buffer(vb_desc);
 	ibo = rs->context->create_buffer(ib_desc);
 
-	rs->upload_to_device(vbo.get(), raw_data_ptr->vertices.data(), vb_bytes, 0);
-	rs->upload_to_device(ibo.get(), raw_data_ptr->indices.data(), ib_bytes, 0);
+	rs->upload_to_device(vbo.get(), raw_data_ptr->vertices.data(), static_cast<u32>(vb_bytes), 0);
+	rs->upload_to_device(ibo.get(), raw_data_ptr->indices.data(), static_cast<u32>(ib_bytes), 0);
 	rs->buffer_barrier(vbo.get(), {
 			.src_stage = rhiPipelineStage::copy,
 			.dst_stage = rhiPipelineStage::vertex_input,
@@ -126,6 +126,7 @@ void rhiRenderResource::rebuild_submeshes(textureCache* tex_cache, glTFMesh* raw
 			.alpha_cutoff = s.alpha_cutoff,
 			.metalic_factor = s.metalic_factor,
 			.roughness_factor = s.roughness_factor,
+			.is_translucent = s.is_alpha_blend,
 			.is_double_sided = s.is_double_sided
 			});
 	}
@@ -144,7 +145,7 @@ rhiBuffer* rhiRenderResource::get_ibo() const
 const rhiRenderResource::material& rhiRenderResource::get_material(const i32 slot_index)
 {
 	if (slot_index >= materials.size())
-		assert(false);
+		ASSERT(false);
 
 	return materials[slot_index];
 }

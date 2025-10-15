@@ -4,14 +4,14 @@
 
 const u32 rhiDeviceContext::get_queue_family_index(rhiQueueType type) const
 {
-	assert(queue.contains(type));
+	ASSERT(queue.contains(type));
 	auto q = queue.at(type).get();
 	return q->q_index();
 }
 
 rhiQueue* rhiDeviceContext::get_queue(rhiQueueType type) const
 {
-	assert(queue.contains(type));
+	ASSERT(queue.contains(type));
 	return queue.at(type).get();
 }
 

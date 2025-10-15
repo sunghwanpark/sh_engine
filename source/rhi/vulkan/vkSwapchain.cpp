@@ -160,12 +160,12 @@ VkSurfaceFormatKHR vkSwapchain::get_surface_format()
 		}
 		else
 		{
-			assert(false);
+			ASSERT(false);
 		}
 	}
 	else
 	{
-		assert(false);
+		ASSERT(false);
 	}
 
 	return choose_format;
@@ -190,12 +190,12 @@ VkPresentModeKHR vkSwapchain::get_present_mode()
 		}
 		else
 		{
-			assert(false);
+			ASSERT(false);
 		}
 	}
 	else
 	{
-		assert(false);
+		ASSERT(false);
 	}
 
 	return choose_present_mode;

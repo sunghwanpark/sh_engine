@@ -67,6 +67,6 @@ protected:
     std::unordered_map<bindlessTextureKey, uint32_t, bindlessTextureKeyHash> texture_index_cache;
     std::unordered_map<rhiSamplerKey, uint32_t, rhiSamplerKeyHash> sampler_index_cache;
 
-    u32 next_image = 0;
-    u32 next_sampler = 0;
+    u32 next_image = 1;
+    u32 next_sampler = 1;
 };

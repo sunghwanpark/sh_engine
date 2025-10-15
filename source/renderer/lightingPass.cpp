@@ -9,14 +9,14 @@ void lightingPass::initialize(const drawInitContext& context)
 {
 	drawPass::initialize(context);
 
-	camera_cbuffer.resize(draw_context->rs->frame_context->get_frame_size());
-	light_cbuffer.resize(draw_context->rs->frame_context->get_frame_size());
-	ibl_param_cbuffer.resize(draw_context->rs->frame_context->get_frame_size());
-	for (u32 i = 0; i < draw_context->rs->frame_context->get_frame_size(); ++i)
+	camera_cbuffer.resize(init_context->rs->frame_context->get_frame_size());
+	light_cbuffer.resize(init_context->rs->frame_context->get_frame_size());
+	ibl_param_cbuffer.resize(init_context->rs->frame_context->get_frame_size());
+	for (u32 i = 0; i < init_context->rs->frame_context->get_frame_size(); ++i)
 	{
-		draw_context->rs->create_or_resize_buffer(camera_cbuffer[i], sizeof(lightingPass::cam), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device, 0);
-		draw_context->rs->create_or_resize_buffer(light_cbuffer[i], sizeof(lightingPass::light), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device, 0);
-		draw_context->rs->create_or_resize_buffer(ibl_param_cbuffer[i], sizeof(lightingPass::light), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device, 0);
+		init_context->rs->create_or_resize_buffer(camera_cbuffer[i], sizeof(lightingPass::cam), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device, 0);
+		init_context->rs->create_or_resize_buffer(light_cbuffer[i], sizeof(lightingPass::light), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device, 0);
+		init_context->rs->create_or_resize_buffer(ibl_param_cbuffer[i], sizeof(lightingPass::light), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device, 0);
 	}
 }
 
@@ -48,7 +48,7 @@ void lightingPass::update(renderShared* rs, camera* camera, const vec3& light_di
 void lightingPass::update_cbuffers(renderShared* rs, camera* camera, const vec3& light_dir, const std::vector<mat4>& light_viewprojs, const std::vector<f32>& cascade_splits, const u32 shadow_resolution, const u32 cubemap_mipcount)
 {
 	cam c{
-		.inv_proj = glm::inverse(camera->proj(vec2(draw_context->w, draw_context->h))),
+		.inv_proj = glm::inverse(camera->proj(vec2(init_context->w, init_context->h))),
 		.inv_view = glm::inverse(camera->view()),
 		.near_far = vec2(camera->get_near(), camera->get_far()),
 		.cascade_splits = vec4(cascade_splits[0], cascade_splits[1], cascade_splits[2], cascade_splits[3]),
@@ -177,12 +177,13 @@ void lightingPass::build_layouts(renderShared* rs)
 				.stage = rhiShaderStage::fragment
 			},
 		}, 0);
-	create_pipeline_layout(rs, { set_fragment_layout }, 0);
+	create_pipeline_layout(rs, { set_fragment_layout });
 	create_descriptor_sets(rs, { set_fragment_layout });
 }
 
 void lightingPass::build_attachments(rhiDeviceContext* context)
 {
+	render_info.renderpass_name = "lighting";
 	render_info.samples = rhiSampleCount::x1;
 	render_info.color_formats = { rhiFormat::RGBA8_UNORM };
 	render_info.depth_format = std::nullopt;

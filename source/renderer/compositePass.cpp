@@ -8,8 +8,8 @@
 void compositePass::initialize(const drawInitContext& context)
 {
     drawPass::initialize(context);
-    auto ptr = static_cast<compositeInitContext*>(draw_context.get());
-    assert(ptr);
+    auto ptr = static_cast<compositeInitContext*>(init_context.get());
+    ASSERT(ptr);
     set_swapchain_views(ptr->swapchain_views);
     create_composite_cbuffer(ptr->rs);
 }
@@ -74,7 +74,7 @@ void compositePass::build_layouts(renderShared* rs)
             },
         }, 0);
 
-    create_pipeline_layout(rs, { set_composite }, 0);
+    create_pipeline_layout(rs, { set_composite });
     create_descriptor_sets(rs, { set_composite });
 }
 
@@ -166,13 +166,18 @@ void compositePass::update_renderinfo(renderShared* rs)
             .clear = { {1,0,0,1}, 1.0f, 0 }
         }
     };
+}
+
+void compositePass::build_attachments(rhiDeviceContext* context)
+{
+    render_info.renderpass_name = "composite";
     render_info.depth_attachment = std::nullopt;
 }
 
 void compositePass::update_cbuffer(renderShared * rs)
 {
     const compositeCB ccb{
-        .inv_rt = { 1.0f / draw_context->w, 1.0f / draw_context->h },
+        .inv_rt = { 1.0f / init_context->w, 1.0f / init_context->h },
         .exposure = 1.f,
         .pad = 0.f
     };

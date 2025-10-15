@@ -6,6 +6,7 @@
 #include "vkQueue.h"
 #include "vkSwapchain.h"
 
+
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback
 (
     VkDebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -37,6 +38,7 @@ vkCmdCenter::~vkCmdCenter()
 
 bool vkCmdCenter::initialize(std::string_view application_name, GLFWwindow* window, const u32 width, const u32 height)
 {
+    bool ret = rhiCmdCenter::initialize(application_name, window, width, height);
     // init volk
     volk_init();
     // create instance
@@ -53,7 +55,7 @@ bool vkCmdCenter::initialize(std::string_view application_name, GLFWwindow* wind
     if (!create_swapchain(width, height))
         return false;
 
-    return rhiCmdCenter::initialize(application_name, window, width, height);
+    return ret;
 }
 
 void vkCmdCenter::volk_init()
@@ -110,7 +112,7 @@ void vkCmdCenter::create_instance(std::string_view application_name)
     dbg_createinfo.messageSeverity =
         VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
         VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;   // 필요 시 VERBOSE도 추가
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
     dbg_createinfo.messageType =
         VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
         VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
@@ -285,7 +287,13 @@ bool vkCmdCenter::create_logical_device()
         }
     }
 
-    std::vector<const char*> device_extension_names = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+    std::vector<const char*> device_extension_names = { 
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+#if ENABLE_AFTERMATH 
+        VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME,
+        VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME,
+#endif
+    };
     VkPhysicalDeviceFeatures device_features{};
     VkDeviceCreateInfo device_create_info
     {
@@ -300,6 +308,9 @@ bool vkCmdCenter::create_logical_device()
     VkPhysicalDeviceExtendedDynamicStateFeaturesEXT dys_feature{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT
     };
+    VkPhysicalDeviceExtendedDynamicState2FeaturesEXT dys_deature2{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT
+    };
     VkPhysicalDeviceVulkan11Features v11{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES
     };
@@ -309,7 +320,8 @@ bool vkCmdCenter::create_logical_device()
     VkPhysicalDeviceVulkan13Features v13{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
     };
-    dys_feature.pNext = &v11;
+    dys_feature.pNext = &dys_deature2;
+    dys_deature2.pNext = &v11;
     v11.pNext = &v12;
     v12.pNext = &v13;
     VkPhysicalDeviceFeatures2 device_features2{
@@ -334,9 +346,21 @@ bool vkCmdCenter::create_logical_device()
     v12.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
     v11.shaderDrawParameters = VK_TRUE;
     dys_feature.extendedDynamicState = VK_TRUE;
+    dys_deature2.extendedDynamicState2 = VK_TRUE;
 
     device_create_info.pEnabledFeatures = nullptr;
+#if ENABLE_AFTERMATH
+    const VkDeviceDiagnosticsConfigCreateInfoNV diag{
+        .sType = VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV,
+        .pNext = &device_features2,
+        .flags = VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV |
+        VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV |
+        VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_ERROR_REPORTING_BIT_NV
+    };
+    device_create_info.pNext = &diag;
+#else
     device_create_info.pNext = &device_features2;
+#endif
 
     VK_CHECK_ERROR(vkCreateDevice(vk_context->phys_device, &device_create_info, nullptr, &vk_context->device));
 
@@ -370,10 +394,10 @@ bool vkCmdCenter::create_logical_device()
 
 bool vkCmdCenter::create_swapchain(const u32 width, const u32 height)
 {
-    assert(swapchain == nullptr);
+    ASSERT(swapchain == nullptr);
 
     auto vk_device_context = std::static_pointer_cast<vkDeviceContext>(device_context);
-    assert(vk_device_context);
+    ASSERT(vk_device_context);
 
     const u32 gfx_queue_findex = queue_family_indices.families[static_cast<u32>(vkQueueFamilyIndices::queue_family_type::graphics)].value();
     const u32 present_queue_findex =queue_family_indices.families[static_cast<u32>(vkQueueFamilyIndices::queue_family_type::present)].value();

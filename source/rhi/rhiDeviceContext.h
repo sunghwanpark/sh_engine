@@ -36,7 +36,7 @@ public:
     virtual void update_descriptors(const std::vector<rhiWriteDescriptor>& writes) = 0;
     virtual rhiDescriptorSetLayout create_descriptor_indexing_set_layout(const rhiDescriptorIndexing& desc, const u32 set_index) = 0;
 
-    virtual rhiPipelineLayout create_pipeline_layout(std::vector<rhiDescriptorSetLayout> set_layouts, u32 push_constant_bytes, void** keep_alive_out) = 0;
+    virtual rhiPipelineLayout create_pipeline_layout(std::vector<rhiDescriptorSetLayout> set_layouts, std::vector<rhiPushConstant> push_constant_bytes = {}, void** keep_alive_out = nullptr) = 0;
     virtual std::unique_ptr<rhiPipeline> create_graphics_pipeline(const rhiGraphicsPipelineDesc& desc, const rhiPipelineLayout& layout) = 0;
     virtual std::unique_ptr<rhiPipeline> create_compute_pipeline(const rhiComputePipelineDesc& desc, const rhiPipelineLayout& layout) = 0;
     virtual std::shared_ptr<rhiCommandList> begin_onetime_commands(rhiQueueType t = rhiQueueType::graphics) = 0;

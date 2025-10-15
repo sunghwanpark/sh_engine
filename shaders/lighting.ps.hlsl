@@ -81,11 +81,12 @@ float get_view_z(float2 uv, float depth01)
 
 uint select_cascade(float view_z_n)
 {
+    float dist = abs(view_z_n);
     uint idx = 0;
     [unroll]
     for (uint i = 0; i < SHADOW_MAP_CASCADE_COUNT; ++i)
     {
-        if (view_z_n < cascade_splits[i])
+        if (dist < cascade_splits[i])
             return i;
     }
     return idx;
@@ -126,7 +127,7 @@ float sample_shadow_PCF3x3(uint ci, float3 world_pos)
         [unroll]
         for (int x = -1; x <= 1; ++x)
         {
-            float dist = shadows.Sample(shadow_sampler, float3(uv + float2(x, y) * texel, ci));
+            float dist = shadows.Sample(linear_sampler, float3(uv + float2(x, y) * texel, ci));
             acc += (dist < receiver) ? 0.0 : 1.0;
             ++cnt;
         }

@@ -79,21 +79,22 @@ void gbufferPass::begin(rhiCommandList* cmd)
 {
     drawPass::begin(cmd);
 
-    auto ptr = static_cast<gbufferInitContext*>(draw_context.get());
-    assert(ptr);
+    auto ptr = static_cast<gbufferInitContext*>(init_context.get());
+    ASSERT(ptr);
 
     auto table_ptr = ptr->bindless_table.lock();
-    assert(table_ptr);
+    ASSERT(table_ptr);
     table_ptr->bind_once(cmd, pipeline_layout, 2);
 }
 
 void gbufferPass::draw(rhiCommandList* cmd)
 {
-    auto buffer_ptr = indirect_buffer.lock();
+    auto buffer_ptr = indirect_buffer->at(static_cast<u8>(draw_type));
+    auto group_record = group_records->at(static_cast<u8>(draw_type));
     cmd->bind_pipeline(pipeline.get());
 
     constexpr u32 stride = sizeof(rhiDrawIndexedIndirect);
-    for (const auto& g : *group_records)
+    for (const auto& g : group_record)
     {
         push_constants(cmd, g);
         //cmd->set_cullmode(double_sided_infos[g.first_cmd] ? rhiCullMode::none : rhiCullMode::back);
@@ -116,7 +117,7 @@ void gbufferPass::build_layouts(renderShared* rs)
                 .stage = rhiShaderStage::vertex | rhiShaderStage::fragment
             },
         }, 0);
-    
+
     set_instances = rs->context->create_descriptor_set_layout(
         {
             {
@@ -124,22 +125,23 @@ void gbufferPass::build_layouts(renderShared* rs)
                 .type = rhiDescriptorType::storage_buffer,
                 .count = 1,
                 .stage = rhiShaderStage::vertex
-            },
+            }
         }, 1);
 
-    auto ptr = static_cast<gbufferInitContext*>(draw_context.get());
-    assert(ptr);
+    auto ptr = static_cast<gbufferInitContext*>(init_context.get());
+    ASSERT(ptr);
 
     auto table_ptr = ptr->bindless_table.lock();
-    assert(table_ptr);
+    ASSERT(table_ptr);
 
     set_material = table_ptr->get_set_layout();
-    create_pipeline_layout(rs, { set_globals, set_instances, set_material }, sizeof(materialPC));
+    create_pipeline_layout(rs, { set_globals, set_instances, set_material }, { { rhiShaderStage::fragment, sizeof(materialPC) } });
     create_descriptor_sets(rs, { set_globals, set_instances });
 }
 
 void gbufferPass::build_attachments(rhiDeviceContext* context)
 {
+    render_info.renderpass_name = "gbuffer";
     render_info.samples = rhiSampleCount::x1;
     render_info.color_formats = { rhiFormat::RGBA8_UNORM, rhiFormat::RGBA8_UNORM, rhiFormat::RGBA8_UNORM };
     render_info.depth_format = rhiFormat::D32S8;
@@ -248,7 +250,7 @@ void gbufferPass::end_barrier(rhiCommandList* cmd)
     cmd->image_barrier(depth.get(), rhiImageLayout::depth_stencil_attachment, rhiImageLayout::shader_readonly, 0, 1, 0, depth->desc.layers);
 }
 
-void gbufferPass::update(renderShared* rs, const rhiBuffer* global_buffer, const rhiBuffer* instance_storage_buf)
+void gbufferPass::update(renderShared* rs, const rhiBuffer* global_buffer)
 {
     update_globals(rs, global_buffer, 0);
     update_instances(rs, 1);
@@ -278,5 +280,5 @@ void gbufferPass::update_globals(renderShared* rs, const rhiBuffer* global_buffe
 void gbufferPass::push_constants(rhiCommandList* cmd, const groupRecord& g)
 {
     materialPC pc = g;
-    cmd->push_constants(pipeline_layout, rhiShaderStage::all, 0, sizeof(pc), &pc);
+    cmd->push_constants(pipeline_layout, rhiShaderStage::fragment, 0, sizeof(pc), &pc);
 }

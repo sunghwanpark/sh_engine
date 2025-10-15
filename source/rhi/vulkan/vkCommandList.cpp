@@ -40,7 +40,7 @@ void vkCommandList::allocate()
 
 void vkCommandList::begin(u32 flags)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
 	VkCommandBufferBeginInfo begin_info{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 	if (flags & 0x1u)
 		begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -50,19 +50,24 @@ void vkCommandList::begin(u32 flags)
 
 void vkCommandList::end()
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
 	VK_CHECK_ERROR(vkEndCommandBuffer(cmd_buffer));
 }
 
 void vkCommandList::reset()
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
 	VK_CHECK_ERROR(vkResetCommandBuffer(cmd_buffer, 0));
 }
 
 void vkCommandList::begin_render_pass(const rhiRenderingInfo& info)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
+    VkDebugUtilsLabelEXT label{
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+        .pLabelName = info.renderpass_name.c_str()
+    };
+    vkCmdBeginDebugUtilsLabelEXT(cmd_buffer, &label);
 
 	auto ptr = weak_imgview_cache.lock();
     std::vector<VkRenderingAttachmentInfo> color_attachments;
@@ -134,13 +139,14 @@ void vkCommandList::begin_render_pass(const rhiRenderingInfo& info)
 
 void vkCommandList::end_render_pass()
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
     vkCmdEndRendering(cmd_buffer);
+    vkCmdEndDebugUtilsLabelEXT(cmd_buffer);
 }
 
 void vkCommandList::set_viewport_scissor(const vec2 vp_size)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
     const VkViewport vp{
         .x = 0.f,
         .y = 0.f,
@@ -160,7 +166,7 @@ void vkCommandList::set_viewport_scissor(const vec2 vp_size)
 
 void vkCommandList::copy_buffer(rhiBuffer* src, const u32 src_offset, rhiBuffer* dst, const u32 dst_offset, const u64 bytes)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
     VkBuffer vk_src = reinterpret_cast<VkBuffer>(src->native());
     VkBuffer vk_dst = reinterpret_cast<VkBuffer>(dst->native());
 
@@ -174,7 +180,7 @@ void vkCommandList::copy_buffer(rhiBuffer* src, const u32 src_offset, rhiBuffer*
 
 void vkCommandList::copy_buffer_to_image(rhiBuffer* src_buf, rhiTexture* dst_tex, rhiImageLayout layout, std::span<const rhiBufferImageCopy> regions)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
     auto vk_src = static_cast<vkBuffer*>(src_buf);
     auto vk_dst = static_cast<vkTexture*>(dst_tex);
 
@@ -319,7 +325,7 @@ void vkCommandList::image_barrier(rhiTexture* tex, const rhiImageBarrierDescript
 
 void vkCommandList::image_barrier(rhiTexture* tex, rhiImageLayout old_layout, rhiImageLayout new_layout, u32 base_mip, u32 level_count, u32 base_layer, u32 layer_count, bool is_same_stage)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
     auto vk_tex = static_cast<vkTexture*>(tex);
 
     if (level_count == 0) 
@@ -364,7 +370,7 @@ void vkCommandList::image_barrier(rhiTexture* tex, rhiImageLayout old_layout, rh
 
 void vkCommandList::image_barrier(rhiTextureCubeMap* tex, rhiImageLayout old_layout, rhiImageLayout new_layout, u32 base_mip, u32 level_count, u32 base_layer, u32 layer_count, bool is_same_stage)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
     auto vk_tex = static_cast<vkTextureCubemap*>(tex);
 
     if (level_count == 0)
@@ -409,8 +415,8 @@ void vkCommandList::image_barrier(rhiTextureCubeMap* tex, rhiImageLayout old_lay
 
 void vkCommandList::buffer_barrier(rhiBuffer* buf, const rhiBufferBarrierDescription& desc)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
-    assert(buf);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(buf);
 
     VkBuffer vk_buf = reinterpret_cast<VkBuffer>(buf->native());
 
@@ -438,15 +444,15 @@ void vkCommandList::buffer_barrier(rhiBuffer* buf, const rhiBufferBarrierDescrip
 
 void vkCommandList::bind_pipeline(rhiPipeline* p)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
     auto vk_pipeline = static_cast<vkPipeline*>(p);
-    assert(vk_pipeline);
+    ASSERT(vk_pipeline);
     vkCmdBindPipeline(cmd_buffer, vk_pipeline->bind_point, vk_pipeline->handle);
 }
 
 void vkCommandList::bind_vertex_buffer(rhiBuffer* vbo, const u32 slot, const u32 offset)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
     VkBuffer buf = reinterpret_cast<VkBuffer>(vbo->native());
     const VkDeviceSize size = offset;
     vkCmdBindVertexBuffers(cmd_buffer, slot, 1, &buf, &size);
@@ -454,14 +460,14 @@ void vkCommandList::bind_vertex_buffer(rhiBuffer* vbo, const u32 slot, const u32
 
 void vkCommandList::bind_index_buffer(rhiBuffer* ibo, const u32 offset)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
     VkBuffer buf = reinterpret_cast<VkBuffer>(ibo->native());
     vkCmdBindIndexBuffer(cmd_buffer, buf, offset, VK_INDEX_TYPE_UINT32);
 }
 
 void vkCommandList::bind_descriptor_sets(rhiPipelineLayout layout, rhiPipelineType pipeline, const std::vector<rhiDescriptorSet>& sets, const u32 first_set, const std::vector<u32>& dynamic_offsets)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
     
     std::vector<VkDescriptorSet> vk_descriptor_sets;
     vk_descriptor_sets.reserve(sets.size());
@@ -495,7 +501,7 @@ void vkCommandList::push_constants(const rhiPipelineLayout layout, rhiShaderStag
 
 void vkCommandList::set_cullmode(const rhiCullMode cull_mode)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
     VkCullModeFlags flag = VK_CULL_MODE_NONE;
     switch (cull_mode)
     {
@@ -507,19 +513,19 @@ void vkCommandList::set_cullmode(const rhiCullMode cull_mode)
 
 void vkCommandList::draw_indexed_indirect(rhiBuffer* indirect_buffer, const u32 offset, const u32 draw_count, const u32 stride)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
     VkBuffer buf = reinterpret_cast<VkBuffer>(indirect_buffer->native());
     vkCmdDrawIndexedIndirect(cmd_buffer, buf, VkDeviceSize(offset), draw_count, stride);
 }
 
 void vkCommandList::draw_fullscreen()
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
     vkCmdDraw(cmd_buffer, 3, 1, 0, 0);
 }
 
 void vkCommandList::dispatch(const u32 x, const u32 y, const u32 z)
 {
-    assert(cmd_buffer != VK_NULL_HANDLE);
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
     vkCmdDispatch(cmd_buffer, x, y, z);
 }

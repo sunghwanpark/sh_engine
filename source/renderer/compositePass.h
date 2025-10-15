@@ -37,6 +37,7 @@ protected:
     void end_barrier(rhiCommandList* cmd) override;
     void build_layouts(renderShared* rs) override;
     void build_pipeline(renderShared* rs) override;
+    void build_attachments(rhiDeviceContext* context) override;
 
 private:
     void set_swapchain_views(const std::vector<rhiRenderTargetView>& views);

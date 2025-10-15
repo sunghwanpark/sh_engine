@@ -16,7 +16,7 @@
 
 namespace
 {
-    rhiPipelineLayout vk_create_pipeline_layout(VkDevice device, const std::vector<rhiDescriptorSetLayout>& set_layouts, u32 push_constant_bytes, std::shared_ptr<vkPipelineLayoutHolder>& keep_alive)
+    rhiPipelineLayout vk_create_pipeline_layout(VkDevice device, const std::vector<rhiDescriptorSetLayout>& set_layouts, const std::vector<rhiPushConstant>& push_constant_bytes, std::shared_ptr<vkPipelineLayoutHolder>& keep_alive)
     {
         keep_alive = std::make_shared<vkPipelineLayoutHolder>(device);
 
@@ -34,14 +34,20 @@ namespace
             .pSetLayouts = layouts.data()
         };
 
-        VkPushConstantRange pc{};
-        if (push_constant_bytes)
+        std::vector<VkPushConstantRange> push_constants;
+        if (push_constant_bytes.size() > 0)
         {
-            pc.stageFlags = VK_SHADER_STAGE_ALL;
-            pc.offset = 0;
-            pc.size = push_constant_bytes;
-            create_info.pushConstantRangeCount = 1;
-            create_info.pPushConstantRanges = &pc;
+            push_constants.resize(push_constant_bytes.size());
+            u32 offset = 0;
+            for(u32 index = 0; index < push_constants.size(); ++index)
+            {
+                push_constants[index].stageFlags = vk_shader_stage(push_constant_bytes[index].stage);
+                push_constants[index].offset = offset;
+                push_constants[index].size = push_constant_bytes[index].bytes;
+                offset += push_constant_bytes[index].bytes;
+            }
+            create_info.pushConstantRangeCount = static_cast<u32>(push_constants.size());
+            create_info.pPushConstantRanges = push_constants.data();
         }
         VK_CHECK_ERROR(vkCreatePipelineLayout(device, &create_info, nullptr, &keep_alive->layout));
         return { .native = keep_alive->layout };
@@ -144,11 +150,23 @@ namespace
             .depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL
         };
         
-        std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments(desc.color_formats.size());
-        for (auto& a : color_blend_attachments)
+        std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments;
+        color_blend_attachments.resize(desc.color_formats.size());
+        for (u32 index = 0; index < desc.color_formats.size(); ++index)
         {
-            a.colorWriteMask = 0xF;
-            a.blendEnable = VK_FALSE;
+            color_blend_attachments[index].colorWriteMask = 0xF;
+            color_blend_attachments[index].blendEnable = VK_FALSE;
+            if (desc.blend_states.size() > index)
+            {
+                color_blend_attachments[index].blendEnable = VK_TRUE;
+                color_blend_attachments[index].srcColorBlendFactor = vk_blend_factor(desc.blend_states[index].src_color);
+                color_blend_attachments[index].dstColorBlendFactor = vk_blend_factor(desc.blend_states[index].dst_color);
+                color_blend_attachments[index].colorBlendOp = vk_blend_op(desc.blend_states[index].color_blend);
+                color_blend_attachments[index].srcAlphaBlendFactor = vk_blend_factor(desc.blend_states[index].src_alpha);
+                color_blend_attachments[index].dstAlphaBlendFactor = vk_blend_factor(desc.blend_states[index].dst_alpha);
+                color_blend_attachments[index].alphaBlendOp = vk_blend_op(desc.blend_states[index].alpha_blend);
+                color_blend_attachments[index].colorWriteMask = vk_color_component_bit(desc.blend_states[index].color_write_mask);
+            }
         }
         const VkPipelineColorBlendStateCreateInfo color_blend_state{ 
             .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO, 
@@ -394,7 +412,7 @@ std::vector<rhiDescriptorSet> vkDeviceContext::allocate_descriptor_sets(rhiDescr
     auto vk_pool = reinterpret_cast<VkDescriptorPool>(pool.native);
     if (!vk_pool)
     {
-        assert(false);
+        ASSERT(false);
         return {};
     }
     std::vector<VkDescriptorSetLayout> vk_layouts;
@@ -404,7 +422,7 @@ std::vector<rhiDescriptorSet> vkDeviceContext::allocate_descriptor_sets(rhiDescr
         auto vk_layout = reinterpret_cast<VkDescriptorSetLayout>(layout.native);
         if (!vk_layout)
         {
-            assert(false);
+            ASSERT(false);
             continue;
         }
         vk_layouts.push_back(vk_layout);
@@ -438,7 +456,7 @@ std::vector<rhiDescriptorSet> vkDeviceContext::allocate_descriptor_indexing_sets
     auto vk_pool = reinterpret_cast<VkDescriptorPool>(pool.native);
     if (!vk_pool)
     {
-        assert(false);
+        ASSERT(false);
         return {};
     }
     std::vector<VkDescriptorSetLayout> vk_layouts;
@@ -448,7 +466,7 @@ std::vector<rhiDescriptorSet> vkDeviceContext::allocate_descriptor_indexing_sets
         auto vk_layout = reinterpret_cast<VkDescriptorSetLayout>(layout.native);
         if (!vk_layout)
         {
-            assert(false);
+            ASSERT(false);
             continue;
         }
         vk_layouts.push_back(vk_layout);
@@ -605,7 +623,7 @@ void vkDeviceContext::update_descriptors(const std::vector<rhiWriteDescriptor>& 
     vkUpdateDescriptorSets(device, static_cast<u32>(vk_writes.size()), vk_writes.data(), 0, nullptr);
 }
 
-rhiPipelineLayout vkDeviceContext::create_pipeline_layout(std::vector<rhiDescriptorSetLayout> set_layouts, u32 push_constant_bytes, void** keep_alive_out)
+rhiPipelineLayout vkDeviceContext::create_pipeline_layout(std::vector<rhiDescriptorSetLayout> set_layouts, std::vector<rhiPushConstant> push_constant_bytes, void** keep_alive_out)
 {
     std::shared_ptr<vkPipelineLayoutHolder> keep;
     auto layout = vk_create_pipeline_layout(device, set_layouts, push_constant_bytes, keep);
@@ -629,7 +647,7 @@ std::unique_ptr<rhiPipeline> vkDeviceContext::create_compute_pipeline(const rhiC
 
 std::shared_ptr<rhiCommandList> vkDeviceContext::begin_onetime_commands(rhiQueueType t)
 {
-    assert(queue.contains(t));
+    ASSERT(queue.contains(t));
     
     const VkCommandPoolCreateInfo create_info{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -660,12 +678,12 @@ std::shared_ptr<rhiCommandList> vkDeviceContext::begin_onetime_commands(rhiQueue
 
 void vkDeviceContext::submit_and_wait(std::shared_ptr<rhiCommandList> cmd, rhiQueueType t)
 {
-    assert(queue.contains(t));
+    ASSERT(queue.contains(t));
 
     auto vk_cmdlst = std::dynamic_pointer_cast<vkCommandList>(cmd);
-    assert(vk_cmdlst);
+    ASSERT(vk_cmdlst);
     auto vk_cmd = vk_cmdlst->get_cmd_buffer();
-    assert(vk_cmd != VK_NULL_HANDLE);
+    ASSERT(vk_cmd != VK_NULL_HANDLE);
     VK_CHECK_ERROR(vkEndCommandBuffer(vk_cmd));
 
     const VkFenceCreateInfo fence_ci{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
@@ -678,7 +696,7 @@ void vkDeviceContext::submit_and_wait(std::shared_ptr<rhiCommandList> cmd, rhiQu
         .pCommandBuffers = &vk_cmd
     };
     auto q = reinterpret_cast<VkQueue>(queue[t]->handle());
-    assert(q != VK_NULL_HANDLE);
+    ASSERT(q != VK_NULL_HANDLE);
     VK_CHECK_ERROR(vkQueueSubmit(q, 1, &submit_info, submit_fence));
     VK_CHECK_ERROR(vkWaitForFences(device, 1, &submit_fence, VK_TRUE, UINT64_MAX));
     vkDestroyFence(device, submit_fence, nullptr);
@@ -692,14 +710,14 @@ void vkDeviceContext::submit_and_wait(std::shared_ptr<rhiCommandList> cmd, rhiQu
 
 void vkDeviceContext::submit(rhiQueueType type, const rhiSubmitInfo& info)
 {
-    assert(queue.contains(type));
+    ASSERT(queue.contains(type));
 
     std::vector<VkSemaphoreSubmitInfo> wait_semaphores;
     wait_semaphores.reserve(info.waits.size());
     for (auto& wait : info.waits)
     {
         auto* semaphore = static_cast<vkSemaphore*>(wait.semaphore);
-        assert(semaphore);
+        ASSERT(semaphore);
         wait_semaphores.push_back(VkSemaphoreSubmitInfo{
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                 .semaphore = semaphore->handle(),
@@ -714,7 +732,7 @@ void vkDeviceContext::submit(rhiQueueType type, const rhiSubmitInfo& info)
     for (auto& signal : info.signals)
     {
         auto* semaphore = static_cast<vkSemaphore*>(signal.semaphore);
-        assert(semaphore);
+        ASSERT(semaphore);
         signal_semaphores.push_back(VkSemaphoreSubmitInfo{
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                 .semaphore = semaphore->handle(),
@@ -729,7 +747,7 @@ void vkDeviceContext::submit(rhiQueueType type, const rhiSubmitInfo& info)
     for (auto& cmd : info.cmd_lists)
     {
         auto* cmd_list = static_cast<vkCommandList*>(cmd);
-        assert(cmd_list);
+        ASSERT(cmd_list);
         cmds.push_back(VkCommandBufferSubmitInfo{
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
                 .commandBuffer = cmd_list->get_cmd_buffer(),
@@ -758,7 +776,7 @@ void vkDeviceContext::submit(rhiQueueType type, const rhiSubmitInfo& info)
 void vkDeviceContext::wait(rhiFence* f)
 {
     auto vk_f = static_cast<vkFence*>(f);
-    assert(vk_f);
+    ASSERT(vk_f);
     VkFence vk_fence = vk_f->handle();
     vkWaitForFences(device, 1, &vk_fence, VK_TRUE, UINT64_MAX);
 }
@@ -766,7 +784,7 @@ void vkDeviceContext::wait(rhiFence* f)
 void vkDeviceContext::reset(rhiFence* f)
 {
     auto vk_f = static_cast<vkFence*>(f);
-    assert(vk_f);
+    ASSERT(vk_f);
     VkFence vk_fence = vk_f->handle();
     vkResetFences(device, 1, &vk_fence);
 }

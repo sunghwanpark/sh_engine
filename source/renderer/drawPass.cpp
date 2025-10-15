@@ -13,14 +13,14 @@ drawPass::~drawPass()
 
 void drawPass::initialize(const drawInitContext& context)
 {
-    draw_context = context.clone();
+    init_context = context.clone();
     render_info.samples = rhiSampleCount::x1;
-    render_info.render_area = { 0, 0, draw_context->w, draw_context->h };
+    render_info.render_area = { 0, 0, init_context->w, init_context->h };
 
-    descriptor_sets.resize(draw_context->rs->frame_context->get_frame_size());
-    build_layouts(draw_context->rs);
-    build_attachments(draw_context->rs->context);
-    build_pipeline(draw_context->rs);
+    descriptor_sets.resize(init_context->rs->frame_context->get_frame_size());
+    build_layouts(init_context->rs);
+    build_attachments(init_context->rs->context);
+    build_pipeline(init_context->rs);
 }
 
 void drawPass::frame(const u32 image_index)
@@ -30,10 +30,10 @@ void drawPass::frame(const u32 image_index)
 
 void drawPass::resize(renderShared* rs, u32 w, u32 h, u32 layers)
 {
-    draw_context->w = w;
-    draw_context->h = h;
-    draw_context->layers = layers;
-    render_info.render_area = { 0, 0, draw_context->w, draw_context->h };
+    init_context->w = w;
+    init_context->h = h;
+    init_context->layers = layers;
+    render_info.render_area = { 0, 0, init_context->w, init_context->h };
 }
 
 void drawPass::shutdown()
@@ -58,7 +58,7 @@ void drawPass::begin(rhiCommandList* cmd)
     cmd->begin_render_pass(render_info);
     cmd->bind_pipeline(pipeline.get());
     cmd->bind_descriptor_sets(pipeline_layout, rhiPipelineType::graphics, descriptor_sets[image_index.value()], 0, dynamic_offsets);
-    cmd->set_viewport_scissor(vec2(draw_context->w, draw_context->h));
+    cmd->set_viewport_scissor(vec2(init_context->w, init_context->h));
 }
 
 void drawPass::end(rhiCommandList* cmd)
@@ -68,7 +68,7 @@ void drawPass::end(rhiCommandList* cmd)
     image_index.reset();
 }
 
-void drawPass::create_pipeline_layout(renderShared* rs, const std::vector<rhiDescriptorSetLayout>& layouts, u32 push_constant_bytes)
+void drawPass::create_pipeline_layout(renderShared* rs, const std::vector<rhiDescriptorSetLayout>& layouts, const std::vector<rhiPushConstant>& push_constant_bytes)
 {
     pipeline_layout = rs->context->create_pipeline_layout(layouts, push_constant_bytes, nullptr);
 }

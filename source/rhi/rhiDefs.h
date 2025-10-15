@@ -7,16 +7,16 @@ inline constexpr u64 RHI_WHOLE_SIZE = ~0ull;
 struct alignas(16) instanceData 
 {
     glm::mat4 model;
-    glm::mat3 normal_mat;
+    glm::mat4 normal_mat;
 };
 
 struct rhiDrawIndexedIndirect 
 {
-    u32 index_count;
-    u32 instance_count;
-    u32 first_index;
-    i32  vertex_offset;
-    u32 first_instance;
+    u32 index_count;        // 4b
+    u32 instance_count;     // 4b
+    u32 first_index;            // 4b
+    i32  vertex_offset;         // 4b
+    u32 first_instance;         // 4b
 };
 
 enum class rhiQueueType : u8
@@ -82,7 +82,7 @@ enum class rhiLoadOp : u8
 
 enum class rhiStoreOp : u8 
 { 
-    store, dont_care 
+    none, store, dont_care 
 };
 
 enum class rhiSampleCount : u8 
@@ -113,6 +113,8 @@ enum class rhiPipelineStage : u32
     copy = 1u << 10,
     all_graphics = 1u << 11,
     all_commands = 1u << 12,
+    early_fragment_test = 1u << 13,
+    late_fragment_test = 1u << 14,
     bottom_of_pipe = 1u << 31,
 };
 
@@ -126,7 +128,7 @@ enum class rhiShaderStage : u32
     vertex = 1u << 0,
     fragment = 1u << 1,
     compute = 1u << 2,
-    all = vertex | fragment | compute
+    all = 1u << 3
 };
 
 inline rhiShaderStage operator|(rhiShaderStage a, rhiShaderStage b) 
@@ -234,6 +236,7 @@ enum class rhiAccessFlags : u32
     shader_storage_write = 1u << 17,
     draw_indirect = 1u << 18,
     indirect_command_read = 1u << 19,
+    shader_sampled_read = 1u << 20
 };
 inline rhiAccessFlags operator|(rhiAccessFlags a, rhiAccessFlags b)
 {
@@ -296,4 +299,49 @@ enum class rhiTextureUsage : u32
 inline rhiTextureUsage operator|(rhiTextureUsage a, rhiTextureUsage b)
 {
     return static_cast<rhiTextureUsage>(static_cast<u32>(a) | static_cast<u32>(b));
+}
+
+enum class rhiTextureType
+{
+    base_color,
+    base_color_sampler,
+    normal,
+    normal_sampler,
+    metalic_roughness,
+    metalic_roughness_sampler
+};
+
+enum class rhiBlendFactor
+{
+    zero,
+    one,
+    src_color,
+    one_minus_src_color,
+    dst_color,
+    one_minus_dst_color,
+    src_alpha,
+    one_minus_src_alpha,
+    dst_alpha,
+    one_minus_dst_alpha
+};
+
+enum class rhiBlendOp
+{
+    add,
+    subtract,
+    reverse_subtract,
+    min,
+    max
+};
+
+enum class rhiColorComponentBit : u8
+{
+    r = 1u << 0,
+    g = 1u << 1, 
+    b = 1u << 2, 
+    a = 1u << 3
+};
+inline rhiColorComponentBit operator|(rhiColorComponentBit a, rhiColorComponentBit b)
+{
+    return static_cast<rhiColorComponentBit>(static_cast<u8>(a) | static_cast<u8>(b));
 }

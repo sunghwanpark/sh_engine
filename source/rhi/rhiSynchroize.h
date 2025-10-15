@@ -9,7 +9,7 @@ struct rhiBufferBarrierDescription
 	rhiPipelineStage dst_stage;
 	rhiAccessFlags src_access;
 	rhiAccessFlags dst_access;
-	u32 offset;
+	u32 offset = 0;
 	u64 size;
 	u32 src_queue = 0;
 	u32 dst_queue = 0;

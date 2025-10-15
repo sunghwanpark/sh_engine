@@ -118,7 +118,7 @@ inline VkSampler get_vk_sampler(rhiSampler* s)
         return VK_NULL_HANDLE;
 
     auto* vks = dynamic_cast<vkSampler*>(s);
-    assert(vks);
+    ASSERT(vks);
 
     return vks->get_sampler();
 }
@@ -126,7 +126,7 @@ inline VkSampler get_vk_sampler(rhiSampler* s)
 inline VkPipelineLayout get_vk_pipeline_layout(const rhiPipelineLayout& layout)
 {
     auto vk_layout = reinterpret_cast<VkPipelineLayout>(layout.native);
-    assert(vk_layout != VK_NULL_HANDLE);
+    ASSERT(vk_layout != VK_NULL_HANDLE);
     return vk_layout;
 }
 
@@ -289,6 +289,7 @@ inline VkAttachmentStoreOp vk_store_op(rhiStoreOp op)
 {
     switch (op)
     {
+    case rhiStoreOp::none: return VK_ATTACHMENT_STORE_OP_NONE;
     case rhiStoreOp::store: return VK_ATTACHMENT_STORE_OP_STORE;
     case rhiStoreOp::dont_care: return VK_ATTACHMENT_STORE_OP_DONT_CARE;
     }
@@ -375,6 +376,10 @@ inline VkPipelineStageFlags2 vk_pipeline_stage2(rhiPipelineStage stage)
         vk_flags |= VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
     if (has_<rhiPipelineStage>(stage, rhiPipelineStage::all_commands))
         vk_flags |= VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::early_fragment_test))
+        vk_flags |= VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::late_fragment_test))
+        vk_flags |= VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
 
     return vk_flags;    
 }
@@ -418,6 +423,8 @@ inline VkAccessFlags2 vk_access_flags2(rhiAccessFlags f)
         vk_flags |= VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
     if (has_<rhiAccessFlags>(f, rhiAccessFlags::shader_storage_write))
         vk_flags |= VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+    if (has_<rhiAccessFlags>(f, rhiAccessFlags::shader_sampled_read))
+        vk_flags |= VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
 
     return vk_flags;
 }
@@ -433,7 +440,7 @@ inline VkDescriptorBindingFlags vk_binding_flags(rhiDescriptorBindingFlags f)
         vk_flags |= VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
     if (has_<rhiDescriptorBindingFlags>(f, rhiDescriptorBindingFlags::variable_descriptor_count))
         vk_flags |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
-    assert(vk_flags != 0);
+    ASSERT(vk_flags != 0);
     return vk_flags;
 }
 
@@ -453,7 +460,7 @@ inline VkShaderStageFlags vk_shader_stage(rhiShaderStage s)
         if (static_cast<u32>(s) & static_cast<u32>(rhiShaderStage::compute))
             stage |= VK_SHADER_STAGE_COMPUTE_BIT;
     }
-    assert(stage != 0);
+    ASSERT(stage != 0);
     return stage;
 }
 
@@ -465,7 +472,7 @@ inline VkDescriptorPoolCreateFlags vk_desc_pool_create_flags(rhiDescriptorPoolCr
     case rhiDescriptorPoolCreateFlags::update_after_bind: return VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
     case rhiDescriptorPoolCreateFlags::host_only: return VK_DESCRIPTOR_POOL_CREATE_HOST_ONLY_BIT_EXT;
     }
-    assert(false);
+    ASSERT(false);
     return VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 }
 
@@ -488,6 +495,53 @@ inline VkImageUsageFlags vk_image_usage(rhiTextureUsage u)
         vk_flags |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
     if (has_<rhiTextureUsage>(u, rhiTextureUsage::input_attachment))
         vk_flags |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-    assert(vk_flags != 0);
+    ASSERT(vk_flags != 0);
     return vk_flags;
+}
+
+inline VkBlendFactor vk_blend_factor(rhiBlendFactor f)
+{
+    switch (f)
+    {
+    case rhiBlendFactor::zero: return VK_BLEND_FACTOR_ZERO;
+    case rhiBlendFactor::one: return VK_BLEND_FACTOR_ONE;
+    case rhiBlendFactor::src_color: return VK_BLEND_FACTOR_SRC_COLOR;
+    case rhiBlendFactor::one_minus_src_color: return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+    case rhiBlendFactor::dst_color: return VK_BLEND_FACTOR_DST_COLOR;
+    case rhiBlendFactor::one_minus_dst_color: return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+    case rhiBlendFactor::src_alpha: return VK_BLEND_FACTOR_SRC_ALPHA;
+    case rhiBlendFactor::one_minus_src_alpha: return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    case rhiBlendFactor::dst_alpha: return VK_BLEND_FACTOR_DST_ALPHA;
+    case rhiBlendFactor::one_minus_dst_alpha: return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+    }
+    ASSERT(false);
+    return VK_BLEND_FACTOR_ZERO;
+}
+
+inline VkBlendOp vk_blend_op(rhiBlendOp f)
+{
+    switch (f)
+    {
+    case rhiBlendOp::add: return VK_BLEND_OP_ADD;
+    case rhiBlendOp::subtract: return VK_BLEND_OP_SUBTRACT;
+    case rhiBlendOp::reverse_subtract: return VK_BLEND_OP_REVERSE_SUBTRACT;
+    case rhiBlendOp::min: return VK_BLEND_OP_MIN;
+    case rhiBlendOp::max: return VK_BLEND_OP_MAX;
+    }
+    ASSERT(false);
+    return VK_BLEND_OP_ADD;
+}
+
+inline VkColorComponentFlags vk_color_component_bit(rhiColorComponentBit b)
+{
+    VkColorComponentFlags bits;
+    if (has_<rhiColorComponentBit>(b, rhiColorComponentBit::r))
+        bits |= VK_COLOR_COMPONENT_R_BIT;
+    if (has_<rhiColorComponentBit>(b, rhiColorComponentBit::g))
+        bits |= VK_COLOR_COMPONENT_G_BIT;
+    if (has_<rhiColorComponentBit>(b, rhiColorComponentBit::b))
+        bits |= VK_COLOR_COMPONENT_B_BIT;
+    if (has_<rhiColorComponentBit>(b, rhiColorComponentBit::a))
+        bits |= VK_COLOR_COMPONENT_A_BIT;
+    return bits;
 }

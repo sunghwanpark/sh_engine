@@ -10,8 +10,6 @@ cbuffer cameraCB : register(b0, space0)
 {
     float4x4 view;
     float4x4 proj;
-    float4x4 inv_view_proj;
-    float3 cam_pos;
 };
 
 TextureCube<float4> cube_map : register(t1, space0);

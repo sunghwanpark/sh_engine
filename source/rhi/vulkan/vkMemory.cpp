@@ -11,6 +11,6 @@ u32 vkMemory::get_memory_type(VkPhysicalDevice phys_device, u32 memory_type_bits
 		if (supported && matched)
 			return index;
 	}
-	assert(false);
+	ASSERT(false);
 	return -1;
 }

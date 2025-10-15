@@ -4,6 +4,7 @@
 
 class scene;
 class camera;
+class rhiBindlessTable;
 
 namespace shadowpass
 {
@@ -14,6 +15,7 @@ struct shadowInitContext : public drawInitContext
 {
 	scene* s;
 	vec2 framebuffer_size;
+	std::weak_ptr<rhiBindlessTable> bindless_table;
 
 	virtual std::unique_ptr<drawInitContext> clone() const
 	{
@@ -26,8 +28,17 @@ class shadowPass final : public indirectDrawPass
 public:
 	struct shadowCB
 	{
-		mat4 light_viewproj;
-		u32 cascade_index;
+		mat4 light_viewproj; // 64
+		u32 cascade_index; // 4
+		f32 _pad;
+	};
+
+	struct materialPC
+	{
+		u32 base_color_index;
+		u32 base_sampler_index;
+		f32 opacity_scale = 1.f;
+		f32 alpha_cutoff = 0.f;
 	};
 
 public:
@@ -35,6 +46,7 @@ public:
 	void render(renderShared* rs) override;
 	void begin_barrier(rhiCommandList* cmd) override;
 	void end_barrier(rhiCommandList* cmd) override;
+	void update_instances(renderShared* rs, const u32 instancebuf_desc_idx) override;
 
 public:
 	void update(renderShared* rs, scene* s, const vec2 framebuffer_size);
@@ -49,7 +61,6 @@ protected:
 
 private:
 	void build(scene* s, const vec2 framebuffer_size);
-	void update_globals(renderShared* rs, const u32 current_cascade);
 	void update_cascade(scene* s, const vec2 framebuffer_size);
 
 private:
@@ -57,8 +68,12 @@ private:
 	rhiDescriptorSetLayout set_instances;
 
 	std::vector<shadowCB> light_vps;
-	std::vector<std::unique_ptr<rhiBuffer>> uniform_ring_buffer;
 
 	std::unique_ptr<rhiTexture> shadow_depth;
 	std::vector<f32> cascade_splits;
+
+	// translucent
+	rhiPipelineLayout opacity_pipe_layout;
+	std::vector<std::vector<rhiDescriptorSet>> opacity_descriptor_sets;
+	std::unique_ptr<rhiPipeline> opacity_pipeline;
 };

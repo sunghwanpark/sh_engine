@@ -284,9 +284,7 @@ glTFMesh::glTFMesh(const std::string_view path)
             const cgltf_texture_view& m_r = pbr.metallic_roughness_texture;
             uv_set = (bc.has_transform || bc.texture) ? (u32)bc.texcoord : 0;
             if (prim.material->alpha_mode == cgltf_alpha_mode_blend)
-            {
-                // todo
-            }
+                sm.is_alpha_blend = true;
             if (prim.material->alpha_mode == cgltf_alpha_mode_mask)
                 sm.alpha_cutoff = prim.material->alpha_cutoff;
             if (pbr.metallic_factor > 0.f)

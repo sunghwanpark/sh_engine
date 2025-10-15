@@ -63,6 +63,7 @@ struct glTFSubmesh
 	f32 roughness_factor;
 
 	bool is_double_sided = false;
+	bool is_alpha_blend = false;
 	f32 alpha_cutoff;
 
 	mat4 model;
@@ -75,6 +76,7 @@ struct glTFSubmesh
 		h = hash_combine(h, normal_tex);
 		h = hash_combine(h, metalic_roughness_tex);
 		h = hash_combine(h, is_double_sided);
+		h = hash_combine(h, is_alpha_blend);
 		h = hash_combine(h, alpha_cutoff);
 		return h;
 	}

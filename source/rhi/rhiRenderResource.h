@@ -35,9 +35,10 @@ public:
         std::shared_ptr<rhiSampler> m_r_sampler;
 
         f32 alpha_cutoff;
-        f32 metalic_factor;
-        f32 roughness_factor;
+        f32 metalic_factor = 0.f;
+        f32 roughness_factor = 1.f;
 
+        bool is_translucent;
         bool is_double_sided;
     };
 

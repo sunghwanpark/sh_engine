@@ -7,6 +7,8 @@
 #include "renderer/gbufferPass.h"
 #include "renderer/skyPass.h"
 #include "renderer/lightingPass.h"
+#include "renderer/translucentPass.h"
+#include "renderer/oitResolvePass.h"
 #include "renderer/compositePass.h"
 #include "textureCache.h"
 
@@ -47,6 +49,7 @@ private:
 		f32 alpha_cutoff;
 		f32 metalic_factor;
 		f32 roughness_factor;
+		bool is_transluent = false;
 		bool is_double_sided = false;
 
 		bool operator==(const drawGroupKey& o) const
@@ -62,6 +65,7 @@ private:
 				&& alpha_cutoff == o.alpha_cutoff
 				&& metalic_factor == o.metalic_factor
 				&& roughness_factor == o.roughness_factor
+				&& is_transluent == o.is_transluent
 				&& is_double_sided == o.is_double_sided;
 		}
 	};
@@ -80,10 +84,14 @@ private:
 			h ^= (std::hash<f32>()(k.alpha_cutoff) << 8);
 			h ^= (std::hash<f32>()(k.metalic_factor) << 9);
 			h ^= (std::hash<f32>()(k.roughness_factor) << 10);
+			h ^= (std::hash<bool>()(k.is_transluent) << 10);
 			h ^= (std::hash<bool>()(k.is_double_sided) << 11);
 			return h;
 		}
 	};
+
+	
+
 	void prepare(scene* s);
 	void build(scene* s, rhiDeviceContext* context);
 	void notify_nextimage_index_to_drawpass(const u32 image_index);
@@ -99,15 +107,17 @@ private:
 	gbufferPass gbuffer_pass;
 	skyPass sky_pass;
 	lightingPass lighting_pass;
+	translucentPass translucent_pass;
+	oitResolvePass oit_pass;
 	compositePass composite_pass;
 
 	// indirect cpu data
-	std::vector<instanceData> instances;
-	std::vector<rhiDrawIndexedIndirect> indirect_args;
-	std::vector<groupRecord> groups;
+	instanceArray instances;
+	indirectArray indirect_args;
+	groupRecordArray groups;
 
-	std::shared_ptr<rhiBuffer> instance_buffer;
-	std::shared_ptr<rhiBuffer> indirect_buffer;
+	drawTypeBuffers instance_buffer;
+	drawTypeBuffers indirect_buffer;
 	// end indirect cpu data
 
 	// global ring buffer

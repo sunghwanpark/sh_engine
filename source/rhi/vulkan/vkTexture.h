@@ -16,8 +16,8 @@ public:
 	void bind_external_image(VkImage image);
 	VkImage get_image() const { return image; }
 	VkFormat get_format() const { return format; }
-	VkImageView get_view() const { assert(view != VK_NULL_HANDLE); return view; }
-	VkImageView get_depth_view() const { assert(depth_view != VK_NULL_HANDLE); return depth_view; }
+	VkImageView get_view() const { ASSERT(view != VK_NULL_HANDLE); return view; }
+	VkImageView get_depth_view() const { ASSERT(depth_view != VK_NULL_HANDLE); return depth_view; }
 	VkImageView get_layer_view(const u32 idx) const;
 	bool is_depth() const;
 

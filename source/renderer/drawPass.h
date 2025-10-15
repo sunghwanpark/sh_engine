@@ -40,8 +40,8 @@ public:
     virtual void update(drawUpdateContext* update_context) {};
     virtual void render(renderShared* rs);
 
-    const u32 get_width() const { return draw_context->w; }
-    const u32 get_height() const { return draw_context->h; }
+    const u32 get_width() const { return init_context->w; }
+    const u32 get_height() const { return init_context->h; }
     rhiPipeline* get_pipeline() { return pipeline.get(); }
 
 protected:
@@ -54,11 +54,11 @@ protected:
     virtual void build_attachments(rhiDeviceContext* context) {};
     virtual void build_pipeline(renderShared* rs) {};
 
-    void create_pipeline_layout(renderShared* rs, const std::vector<rhiDescriptorSetLayout>& layouts, u32 push_constant_bytes);
+    void create_pipeline_layout(renderShared* rs, const std::vector<rhiDescriptorSetLayout>& layouts, const std::vector<rhiPushConstant>& push_constant_bytes = {});
     void create_descriptor_sets(renderShared* rs, const std::vector<rhiDescriptorSetLayout>& layouts);
 
 protected:
-    std::unique_ptr<drawInitContext> draw_context;
+    std::unique_ptr<drawInitContext> init_context;
     rhiRenderingInfo render_info;
     std::unique_ptr<rhiPipeline> pipeline;
     rhiPipelineLayout pipeline_layout;
@@ -67,4 +67,5 @@ protected:
     std::optional<u32> image_index;
     rhiQueueType main_job_queue = rhiQueueType::graphics;
     bool initialized = false;
+    bool is_first_frame = true;
 };

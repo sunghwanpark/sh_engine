@@ -10,13 +10,15 @@ public:
 	void draw(rhiCommandList* cmd) override;
 
 public:
-	void update_elements(std::vector<groupRecord>* indirect_args, std::weak_ptr<rhiBuffer> instance_buf, std::weak_ptr<rhiBuffer> indirect_buf);
+	void update_elements(groupRecordArray* group_records, drawTypeBuffers* instance_buf, drawTypeBuffers* indirect_buf);
 	void update_double_sided_info(std::unordered_map<u32, bool> infos) { double_sided_infos = infos; }
-	void update_instances(renderShared* rs, const u32 instancebuf_desc_idx);
+	virtual void update_instances(renderShared* rs, const u32 instancebuf_desc_idx);
 
 protected:
-	std::vector<groupRecord>* group_records;
+	groupRecordArray* group_records;
 	std::unordered_map<u32, bool> double_sided_infos;
-	std::weak_ptr<rhiBuffer> indirect_buffer;
-	std::weak_ptr<rhiBuffer> instance_buffer;
+	drawTypeBuffers* indirect_buffer;
+	drawTypeBuffers* instance_buffer;
+
+	drawType draw_type = drawType::gbuffer;
 };

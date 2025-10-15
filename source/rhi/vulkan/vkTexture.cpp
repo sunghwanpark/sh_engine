@@ -176,14 +176,14 @@ void vkTexture::bind_external_image(VkImage image)
 
 VkImageView vkTexture::get_layer_view(const u32 idx) const
 { 
-    assert(idx < layer_views.size());
+    ASSERT(idx < layer_views.size());
     return layer_views[idx]; 
 }
 
 void vkTexture::upload(vkDeviceContext* context)
 {
     auto cmd = context->begin_onetime_commands();
-    assert(cmd);
+    ASSERT(cmd);
 
     cmd->image_barrier(this, rhiImageLayout::undefined, rhiImageLayout::transfer_dst);
     const u32 bytes = desc.width * desc.height * 4 * sizeof(f32);

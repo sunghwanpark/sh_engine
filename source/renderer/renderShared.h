@@ -30,10 +30,17 @@ struct alignas(16) globalsCB
 {
     mat4 view; // 64
     mat4 proj; // 64
-    mat4 inv_view_proj; // 64
+    mat4 view_proj; // 64
     vec4 cam_pos; // 16 (w = padding)
 };
 
+enum class drawType : u8
+{
+    gbuffer = 0,
+    translucent = 1,
+    count
+};
+constexpr u32 draw_type_count = static_cast<u32>(drawType::count);
 struct groupRecord
 {
     const rhiBuffer* vbo;
@@ -51,6 +58,37 @@ struct groupRecord
     f32 metalic_factor;
     f32 roughness_factor;
 };
+
+struct alignas(16) materialPC
+{
+    u32 base_color_index;
+    u32 norm_color_index;
+    u32 mr_color_index;
+    u32 base_sampler_index;
+    u32 norm_sampler_index;
+    u32 mr_sampler_index;
+
+    f32 alpha_cutoff;
+    f32 metalic_factor;
+    f32 roughness_factor;
+    f32 __pad[3];
+
+    materialPC(const groupRecord& g)
+        : base_color_index(g.base_color_index),
+        norm_color_index(g.norm_color_index),
+        mr_color_index(g.m_r_color_index),
+        base_sampler_index(g.base_sam_index),
+        norm_sampler_index(g.norm_sam_index),
+        mr_sampler_index(g.m_r_sam_index),
+        alpha_cutoff(g.alpha_cutoff),
+        metalic_factor(g.metalic_factor),
+        roughness_factor(g.roughness_factor) {}
+};
+
+using groupRecordArray = std::array<std::vector<groupRecord>, draw_type_count>;
+using indirectArray = std::array<std::vector<rhiDrawIndexedIndirect>, draw_type_count>;
+using instanceArray = std::array<std::vector<instanceData>, draw_type_count>;
+using drawTypeBuffers = std::array<std::shared_ptr<rhiBuffer>, draw_type_count>;
 
 class renderShared
 {

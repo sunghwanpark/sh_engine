@@ -31,6 +31,7 @@ struct rhiRenderingAttachment
 
 struct rhiRenderingInfo 
 {
+    std::string renderpass_name = "";
     vec4 render_area;
     std::vector<rhiRenderingAttachment> color_attachments;
 

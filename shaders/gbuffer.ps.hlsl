@@ -57,10 +57,14 @@ psOut main(psIn i)
         discard;
 
     // normal
-    uint n_idx = NonUniformResourceIndex(materials.norm_color_index);
-    uint n_s_idx = NonUniformResourceIndex(materials.norm_sampler_index);
-    float3 nrm = textures[n_idx].Sample(samplers[n_s_idx], i.uv).xyz * 2.f - 1.f;
-    nrm = normalize(nrm);
+    float3 nrm = normalize(i.n);
+    if (materials.norm_color_index > 0)
+    {
+        uint n_idx = NonUniformResourceIndex(materials.norm_color_index);
+        uint n_s_idx = NonUniformResourceIndex(materials.norm_sampler_index);
+        nrm = textures[n_idx].Sample(samplers[n_s_idx], i.uv).xyz * 2.f - 1.f;
+        nrm = normalize(nrm);
+    }
 
     // tbn view
     float3 t = normalize(i.t);
@@ -70,11 +74,16 @@ psOut main(psIn i)
     float3 n_w = normalize(t * nrm.x + b * nrm.y + n * nrm.z);
 
     // metalic / roughness
-    uint mr_idx = NonUniformResourceIndex(materials.mr_color_index);
-    uint mr_s_idx = NonUniformResourceIndex(materials.mr_sampler_index);
-    float2 mr = textures[mr_idx].Sample(samplers[mr_s_idx], i.uv).gb;
-    float roughness = saturate(mr.x * materials.roughness_factor);
-    float metalic = saturate(mr.y * materials.metalic_factor);
+    float roughness = materials.roughness_factor;
+    float metalic = materials.metalic_factor;
+    if (materials.mr_color_index > 0)
+    {
+        uint mr_idx = NonUniformResourceIndex(materials.mr_color_index);
+        uint mr_s_idx = NonUniformResourceIndex(materials.mr_sampler_index);
+        float2 mr = textures[mr_idx].Sample(samplers[mr_s_idx], i.uv).gb;
+        roughness = saturate(mr.x * materials.roughness_factor);
+        metalic = saturate(mr.y * materials.metalic_factor);
+    }
 
     // write
     o.a = float4(albedo.rgb, albedo.a);
