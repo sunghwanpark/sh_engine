@@ -5,15 +5,15 @@
 - **TODO**: DirectX 12 backend
 
 ## 2. Vulkan
-- **Dynamic Rendering** 지원
-- **Bindless Resource** 시스템 적용
+- **Dynamic Rendering**
+- **Bindless Resource**
 
 ## 3. 렌더링 Feature
 - **Deferred Rendering**
 - **Cascade Shadow Map**
 - **PBR + IBL**
-- **TODO**
-  - Translucent Rendering
+- **Translucent Rendering**
+- **OIT**
 
 ![Sponza Scene](docs/sponza.png)
 
