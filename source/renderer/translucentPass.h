@@ -7,6 +7,9 @@ struct translucentInitContext : public drawInitContext
 {
     std::weak_ptr<rhiBindlessTable> bindless_table;
     rhiTexture* depth;
+#if DISABLE_OIT
+    std::weak_ptr<rhiTexture> scene_color;
+#endif
     std::unique_ptr<drawInitContext> clone() const override
     {
         return std::make_unique<translucentInitContext>(*this);

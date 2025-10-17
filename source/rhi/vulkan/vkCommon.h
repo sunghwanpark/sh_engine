@@ -545,3 +545,24 @@ inline VkColorComponentFlags vk_color_component_bit(rhiColorComponentBit b)
         bits |= VK_COLOR_COMPONENT_A_BIT;
     return bits;
 }
+
+inline VkCullModeFlags vk_cullmode(rhiCullMode b)
+{
+    switch (b)
+    {
+    case rhiCullMode::none: return VK_CULL_MODE_NONE;
+    case rhiCullMode::front: return VK_CULL_MODE_FRONT_BIT;
+    case rhiCullMode::back: return VK_CULL_MODE_BACK_BIT;
+    }
+    return VK_CULL_MODE_NONE;
+}
+
+inline VkFrontFace vk_frontface(rhiFrontFace f)
+{
+    switch (f)
+    {
+    case rhiFrontFace::ccw: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    case rhiFrontFace::cw: return VK_FRONT_FACE_CLOCKWISE;
+    }
+    return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+}

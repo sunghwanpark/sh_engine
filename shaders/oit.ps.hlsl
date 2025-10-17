@@ -13,7 +13,7 @@ SamplerState linear_sampler : register(s2, space0);
 float4 main(psIn i) : SV_Target0
 {
     float4 accum = accum_tex.Sample(linear_sampler,  i.uv);
-    float trans = saturate(reveal_tex.Sample(linear_sampler, i.uv).r);
+    float trans = saturate(reveal_tex.Sample(linear_sampler, i.uv).a);
 
     float3 avg_color = (accum.a > 1e-6) ? (accum.rgb / accum.a) : float3(0,0,0);
 

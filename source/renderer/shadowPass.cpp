@@ -252,20 +252,23 @@ void shadowPass::update_instances(renderShared* rs, const u32 instancebuf_desc_i
 	// default
 	{
 		auto& buf = instance_buffer->at(static_cast<u8>(drawType::gbuffer));
-		const rhiDescriptorBufferInfo buffer_info{
+		if (buf)
+		{
+			const rhiDescriptorBufferInfo buffer_info{
 			.buffer = buf.get(),
 			.offset = 0,
 			.range = buf->size()
-		};
-		const rhiWriteDescriptor write_desc{
-			.set = descriptor_sets[image_index.value()][instancebuf_desc_idx],
-			.binding = 0,
-			.array_index = 0,
-			.count = 1,
-			.type = rhiDescriptorType::storage_buffer,
-			.buffer = { buffer_info }
-		};
-		rs->context->update_descriptors({ write_desc });
+			};
+			const rhiWriteDescriptor write_desc{
+				.set = descriptor_sets[image_index.value()][instancebuf_desc_idx],
+				.binding = 0,
+				.array_index = 0,
+				.count = 1,
+				.type = rhiDescriptorType::storage_buffer,
+				.buffer = { buffer_info }
+			};
+			rs->context->update_descriptors({ write_desc });
+		}
 	}
 	// opacity
 	{

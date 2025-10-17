@@ -35,6 +35,12 @@ struct rhiBlendState
     rhiColorComponentBit color_write_mask;
 };
 
+struct rhiRasterState
+{
+    rhiCullMode cull_mode = rhiCullMode::none;
+    rhiFrontFace front_face = rhiFrontFace::ccw;
+};
+
 struct rhiGraphicsPipelineDesc 
 {
     std::optional<rhiShaderBinary> vs;
@@ -42,6 +48,7 @@ struct rhiGraphicsPipelineDesc
     std::vector<rhiFormat> color_formats;
     std::optional<rhiFormat> depth_format;
     std::vector<rhiBlendState> blend_states;
+    rhiRasterState raster_state;
     rhiSampleCount samples = rhiSampleCount::x1;
 
     bool depth_test = true;
@@ -49,8 +56,6 @@ struct rhiGraphicsPipelineDesc
     bool use_dynamic_cullmode = false;
 
     rhiVertexAttribute vertex_layout;
-    // todo
-    // raster
 };
 
 struct rhiComputePipelineDesc 

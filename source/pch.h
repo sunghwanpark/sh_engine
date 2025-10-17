@@ -44,6 +44,8 @@
 #include <DbgHelp.h>
 #pragma comment(lib, "DbgHelp.lib")
 
+#define DISABLE_OIT 0
+
 using namespace glm;
 
 enum class rhi_type

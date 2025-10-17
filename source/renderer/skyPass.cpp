@@ -26,9 +26,9 @@ void skyPass::precompile_dispatch()
 
     // ************************************* create sky cube map *************************************
     // hdr to equirect
-    //auto equirect_tex = rs->context->create_texture_from_path("E:\\Sponza\\resource\\kloofendal_28d_misty_puresky_4k.hdr", true, false);
-    //auto equirect_tex = rs->context->create_texture_from_path("E:\\Sponza\\resource\\qwantani_moonrise_puresky_4k.hdr", true, false);
-    equirect_tex = rs->context->create_texture_from_path("E:\\Sponza\\resource\\818-hdri-skies-com.hdr", true, false);
+    //equirect_tex = rs->context->create_texture_from_path("E:\\Sponza\\resource\\kloofendal_28d_misty_puresky_4k.hdr", true, false);
+    equirect_tex = rs->context->create_texture_from_path("E:\\Sponza\\resource\\qwantani_moonrise_puresky_4k.hdr", true, false);
+    //equirect_tex = rs->context->create_texture_from_path("E:\\Sponza\\resource\\818-hdri-skies-com.hdr", true, false);
 
     // create compute pipeline layout
     auto cs_descriptor_layout1 = rs->context->create_descriptor_set_layout(

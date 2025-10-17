@@ -253,9 +253,15 @@ enum class rhiImageViewType
 
 enum class rhiCullMode
 {
-    back,
+    none,
     front,
-    none
+    back
+};
+
+enum class rhiFrontFace
+{
+    ccw,
+    cw
 };
 
 enum class rhiCubemapViewType : u8 { mip, cube };
@@ -345,3 +351,10 @@ inline rhiColorComponentBit operator|(rhiColorComponentBit a, rhiColorComponentB
 {
     return static_cast<rhiColorComponentBit>(static_cast<u8>(a) | static_cast<u8>(b));
 }
+
+enum class rhiCullmode
+{
+    none,
+    cw,
+    ccw
+};

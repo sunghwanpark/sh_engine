@@ -28,6 +28,7 @@ struct vsOut
     float3 n : TEXCOORD3;
     float3 pos_w : TEXCOORD4;
     float3 view_w : TEXCOORD5;
+    float depth_linear : TEXCOORD6;
 };
 
 struct vsBuiltins
@@ -64,6 +65,7 @@ vsOut main(vsIn i, uint instId : SV_InstanceID, vsBuiltins sys)
     // Extra for translucent shading
     o.pos_w = wp.xyz;
     o.view_w = camera_pos - wp.xyz;
+    o.depth_linear = -vp.z;
     o.uv = i.uv;
 
     return o;

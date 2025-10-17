@@ -89,9 +89,13 @@ void renderer::initialize(scene* s, rhiDeviceContext* device_context, rhiFrameCo
         ctx.h = height;
         ctx.bindless_table = bindless_table;
         ctx.depth = gbuffer_pass.get_depth();
+#if DISABLE_OIT
+        ctx.scene_color = render_shared.scene_color;
+#endif
         translucent_pass.initialize(ctx);
     }
 
+#if !DISABLE_OIT
     {
         oitInitContext ctx{};
         ctx.rs = &render_shared;
@@ -100,6 +104,7 @@ void renderer::initialize(scene* s, rhiDeviceContext* device_context, rhiFrameCo
         ctx.scene_color = render_shared.scene_color;
         oit_pass.initialize(ctx);
     }
+#endif
 
     {
         compositeInitContext ctx{};
@@ -250,6 +255,7 @@ void renderer::render(scene* s)
         }
 
         // oit pass
+#if !DISABLE_OIT
         {
             oitUpdateContext update_context{
                 .accum = translucent_pass.get_accum(),
@@ -258,6 +264,7 @@ void renderer::render(scene* s)
             oit_pass.update(&update_context);
             oit_pass.render(&render_shared);
         }
+#endif
 
         // composite
         {
@@ -327,7 +334,7 @@ void renderer::build(scene* s, rhiDeviceContext* context)
         {
             args.clear();
         });
-    std::array<std::unordered_map<drawGroupKey, std::vector<rhiDrawIndexedIndirect>, drawGroupKeyHash>, draw_type_count> map;
+    std::array<std::unordered_map<drawGroupKey, std::vector<instanceData>, drawGroupKeyHash>, draw_type_count> buckets;
     std::unordered_map<u32, bool> double_sided;
     for (auto& a : s->get_actors())
     {
@@ -375,13 +382,6 @@ void renderer::build(scene* s, rhiDeviceContext* context)
                 .normal_mat = glm::transpose(glm::inverse(submesh_mat))
             };
 
-            const u32 gbuffer_first_instance = static_cast<u32>(instances[static_cast<u8>(drawType::gbuffer)].size());
-            const u32 translucent_first_instance = static_cast<u32>(instances[static_cast<u8>(drawType::translucent)].size());
-            if (mat.is_translucent)
-                instances[static_cast<u8>(drawType::translucent)].push_back(inst);
-            else
-                instances[static_cast<u8>(drawType::gbuffer)].push_back(inst);
-
             const drawGroupKey key
             {
                 .vbo = vbo,
@@ -396,29 +396,13 @@ void renderer::build(scene* s, rhiDeviceContext* context)
                 .metalic_factor = mat.metalic_factor,
                 .roughness_factor = mat.roughness_factor,
                 .is_transluent = mat.is_translucent,
-                .is_double_sided = mat.is_double_sided
+                .is_double_sided = mat.is_double_sided,
+                .first_index = sub_mesh.first_index,
+                .index_count = sub_mesh.index_count,
             };
 
-            if (mat.is_translucent)
-            {
-                map[static_cast<u8>(drawType::translucent)][key].push_back(rhiDrawIndexedIndirect{
-                        .index_count = sub_mesh.index_count,
-                        .instance_count = 1,
-                        .first_index = sub_mesh.first_index,
-                        .vertex_offset = 0,
-                        .first_instance = translucent_first_instance
-                    });
-            }
-            else
-            {
-                map[static_cast<u8>(drawType::gbuffer)][key].push_back(rhiDrawIndexedIndirect{
-                    .index_count = sub_mesh.index_count,
-                    .instance_count = 1,
-                    .first_index = sub_mesh.first_index,
-                    .vertex_offset = 0,
-                    .first_instance = gbuffer_first_instance
-                    });
-            }
+            const u8 draw_type = static_cast<u8>(mat.is_translucent ? drawType::translucent : drawType::gbuffer);
+            buckets[draw_type][key].push_back(inst);
         }
     }
 
@@ -426,19 +410,30 @@ void renderer::build(scene* s, rhiDeviceContext* context)
     for (auto type : enum_range_to_sentinel<drawType, drawType::count>())
     {
         const auto draw_type = static_cast<u8>(type);
-        if (map[draw_type].empty())
+        if (buckets[draw_type].empty())
             continue;
 
         u32 running = 0;
-        groups[draw_type].reserve(map[draw_type].size());
-        for (auto& [key, cmds] : map[draw_type])
+        groups[draw_type].reserve(buckets[draw_type].size());
+        for (auto& [key, insts] : buckets[draw_type])
         {
+            const u32 first_instance = static_cast<u32>(instances[draw_type].size());
+            instances[draw_type].insert(instances[draw_type].end(), insts.begin(), insts.end());
+
+            rhiDrawIndexedIndirect cmd{
+                .index_count = key.index_count,
+                .instance_count = static_cast<u32>(insts.size()),
+                .first_index = key.first_index,
+                .vertex_offset = 0,
+                .first_instance = first_instance
+            };
+
             const groupRecord group_record
             {
                 .vbo = key.vbo,
                 .ibo = key.ibo,
                 .first_cmd = running,
-                .cmd_count = static_cast<u32>(cmds.size()),
+                .cmd_count = 1,
                 .base_color_index = key.base_color_index,
                 .norm_color_index = key.norm_color_index,
                 .m_r_color_index = key.m_r_color_index,
@@ -451,7 +446,7 @@ void renderer::build(scene* s, rhiDeviceContext* context)
             };
 
             groups[draw_type].push_back(group_record);
-            indirect_args[draw_type].insert(indirect_args[draw_type].end(), cmds.begin(), cmds.end());
+            indirect_args[draw_type].push_back(cmd);
             if(type == drawType::gbuffer)
                 double_sided.emplace(running, key.is_double_sided);
             running += group_record.cmd_count;
@@ -481,13 +476,13 @@ void renderer::build(scene* s, rhiDeviceContext* context)
 
         if (indirect_bytes)
         {
-            render_shared.create_or_resize_buffer(indirect_buffer[draw_type], indirect_bytes, rhiBufferUsage::indirect | rhiBufferUsage::storage | rhiBufferUsage::transfer_dst, rhiMem::auto_device, sizeof(rhiDrawIndexedIndirect));
+            render_shared.create_or_resize_buffer(indirect_buffer[draw_type], indirect_bytes, rhiBufferUsage::indirect | rhiBufferUsage::transfer_dst, rhiMem::auto_device, sizeof(rhiDrawIndexedIndirect));
             render_shared.upload_to_device(indirect_buffer[draw_type].get(), indirect_args[draw_type].data(), indirect_bytes);
             render_shared.buffer_barrier(indirect_buffer[draw_type].get(), {
                 .src_stage = rhiPipelineStage::copy,
-                .dst_stage = rhiPipelineStage::vertex_shader | rhiPipelineStage::draw_indirect,
+                .dst_stage = rhiPipelineStage::draw_indirect,
                 .src_access = rhiAccessFlags::transfer_write,
-                .dst_access = rhiAccessFlags::shader_read | rhiAccessFlags::shader_storage_read | rhiAccessFlags::indirect_command_read,
+                .dst_access = rhiAccessFlags::indirect_command_read,
                 .offset = 0,
                 .size = indirect_bytes,
                 .src_queue = render_shared.context->get_queue_family_index(rhiQueueType::graphics),

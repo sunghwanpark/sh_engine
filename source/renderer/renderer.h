@@ -52,6 +52,9 @@ private:
 		bool is_transluent = false;
 		bool is_double_sided = false;
 
+		u32 first_index;
+		u32 index_count;
+
 		bool operator==(const drawGroupKey& o) const
 		{
 			return vbo == o.vbo
@@ -66,7 +69,9 @@ private:
 				&& metalic_factor == o.metalic_factor
 				&& roughness_factor == o.roughness_factor
 				&& is_transluent == o.is_transluent
-				&& is_double_sided == o.is_double_sided;
+				&& is_double_sided == o.is_double_sided
+				&& first_index == o.first_index
+				&& index_count == o.index_count;
 		}
 	};
 	struct drawGroupKeyHash 
@@ -84,13 +89,13 @@ private:
 			h ^= (std::hash<f32>()(k.alpha_cutoff) << 8);
 			h ^= (std::hash<f32>()(k.metalic_factor) << 9);
 			h ^= (std::hash<f32>()(k.roughness_factor) << 10);
-			h ^= (std::hash<bool>()(k.is_transluent) << 10);
-			h ^= (std::hash<bool>()(k.is_double_sided) << 11);
+			h ^= (std::hash<bool>()(k.is_transluent) << 11);
+			h ^= (std::hash<bool>()(k.is_double_sided) << 12);
+			h ^= (std::hash<u32>()(k.first_index) << 13);
+			h ^= (std::hash<u32>()(k.index_count) << 14);
 			return h;
 		}
 	};
-
-	
 
 	void prepare(scene* s);
 	void build(scene* s, rhiDeviceContext* context);

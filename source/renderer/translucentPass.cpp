@@ -8,6 +8,7 @@
 
 void translucentPass::initialize(const drawInitContext& context)
 {
+#if !DISABLE_OIT
 	accumulate_color_alpha = context.rs->context->create_texture({
 		.width = context.w,
 		.height = context.h,
@@ -20,8 +21,9 @@ void translucentPass::initialize(const drawInitContext& context)
 		.height = context.h,
 		.layers = context.layers,
 		.mips = 1,
-		.format = rhiFormat::RG16_SFLOAT
+		.format = rhiFormat::RGBA16F
 		});
+#endif
 	draw_type = drawType::translucent;
 	
 	drawPass::initialize(context);
@@ -64,6 +66,21 @@ void translucentPass::draw(rhiCommandList* cmd)
 
 void translucentPass::begin_barrier(rhiCommandList* cmd)
 {
+	auto ptr = static_cast<translucentInitContext*>(init_context.get());
+	ASSERT(ptr);
+#if DISABLE_OIT
+	auto scene_color = ptr->scene_color.lock();
+	ASSERT(scene_color);
+
+	cmd->image_barrier(scene_color.get(), rhiImageBarrierDescription{
+			.src_stage = rhiPipelineStage::compute_shader | rhiPipelineStage::fragment_shader,
+			.dst_stage = rhiPipelineStage::color_attachment_output,
+			.src_access = rhiAccessFlags::shader_sampled_read | rhiAccessFlags::shader_read,
+			.dst_access = rhiAccessFlags::color_attachment_read | rhiAccessFlags::color_attachment_write,
+			.old_layout = rhiImageLayout::shader_readonly,
+			.new_layout = rhiImageLayout::color_attachment
+		});
+#else
 	if (is_first_frame)
 	{
 		rhiImageBarrierDescription common_desc{
@@ -91,10 +108,7 @@ void translucentPass::begin_barrier(rhiCommandList* cmd)
 		cmd->image_barrier(accumulate_color_alpha.get(), common_desc);
 		cmd->image_barrier(revealage.get(), common_desc);
 	}
-
-	auto ptr = static_cast<translucentInitContext*>(init_context.get());
-	ASSERT(ptr);
-
+#endif
 	cmd->image_barrier(ptr->depth, rhiImageBarrierDescription{
 		.src_stage = rhiPipelineStage::compute_shader | rhiPipelineStage::fragment_shader,
 		.dst_stage = rhiPipelineStage::early_fragment_test | rhiPipelineStage::late_fragment_test,
@@ -108,6 +122,22 @@ void translucentPass::begin_barrier(rhiCommandList* cmd)
 
 void translucentPass::end_barrier(rhiCommandList* cmd)
 {
+	auto ptr = static_cast<translucentInitContext*>(init_context.get());
+	ASSERT(ptr);
+
+#if DISABLE_OIT
+	auto scene_color = ptr->scene_color.lock();
+	ASSERT(scene_color);
+
+	cmd->image_barrier(scene_color.get(), rhiImageBarrierDescription{
+			.src_stage = rhiPipelineStage::color_attachment_output,
+			.dst_stage = rhiPipelineStage::compute_shader | rhiPipelineStage::fragment_shader,
+			.src_access = rhiAccessFlags::color_attachment_read | rhiAccessFlags::color_attachment_write,
+			.dst_access = rhiAccessFlags::shader_sampled_read | rhiAccessFlags::shader_read,
+			.old_layout = rhiImageLayout::color_attachment,
+			.new_layout = rhiImageLayout::shader_readonly
+});
+#else
 	rhiImageBarrierDescription common_desc{
 		.src_stage = rhiPipelineStage::color_attachment_output,
 		.dst_stage = rhiPipelineStage::fragment_shader,
@@ -118,9 +148,8 @@ void translucentPass::end_barrier(rhiCommandList* cmd)
 	};
 	cmd->image_barrier(accumulate_color_alpha.get(), common_desc);
 	cmd->image_barrier(revealage.get(), common_desc);
+#endif
 
-	auto ptr = static_cast<translucentInitContext*>(init_context.get());
-	ASSERT(ptr);
 	cmd->image_barrier(ptr->depth, rhiImageBarrierDescription{
 		.src_stage = rhiPipelineStage::early_fragment_test | rhiPipelineStage::late_fragment_test,
 		.dst_stage = rhiPipelineStage::compute_shader | rhiPipelineStage::fragment_shader,
@@ -192,9 +221,25 @@ void translucentPass::build_attachments(rhiDeviceContext* context)
 
 	render_info.renderpass_name = "translucent";
 	render_info.samples = rhiSampleCount::x1;
-	render_info.color_formats = { rhiFormat::RGBA16F, rhiFormat::RG16_SFLOAT };
 	render_info.depth_format = rhiFormat::D32S8;
 
+#if DISABLE_OIT
+	auto sc = ptr->scene_color.lock();
+	ASSERT(depth);
+
+	render_info.color_formats = { rhiFormat::RGBA8_UNORM };
+	render_info.color_attachments.resize(1);
+
+	rhiRenderTargetView rt1{
+		.texture = sc.get(),
+		.layout = rhiImageLayout::color_attachment
+	};
+	render_info.color_attachments[0].view = rt1;
+	render_info.color_attachments[0].clear = { {0,0,0,0},1.0f, 0 };
+	render_info.color_attachments[0].load_op = rhiLoadOp::load;
+	render_info.color_attachments[0].store_op = rhiStoreOp::store;
+#else
+	render_info.color_formats = { rhiFormat::RGBA16F, rhiFormat::RGBA16F };
 	render_info.color_attachments.resize(2);
 	
 	rhiRenderTargetView rt1{
@@ -208,13 +253,13 @@ void translucentPass::build_attachments(rhiDeviceContext* context)
 		.layout = rhiImageLayout::color_attachment
 	};
 	render_info.color_attachments[1].view = rt2;
-	render_info.color_attachments[1].clear = { {1,0,0,0},1.0f,0 };
+	render_info.color_attachments[1].clear = { {0,0,0,1},1.0f,0 };
 	for (u32 index = 0; index < 2; ++index)
 	{
 		render_info.color_attachments[index].load_op = rhiLoadOp::clear;
 		render_info.color_attachments[index].store_op = rhiStoreOp::store;
 	}
-
+#endif
 	rhiRenderTargetView d{
 		.texture = depth,
 		.layout = rhiImageLayout::depth_readonly
@@ -234,9 +279,45 @@ void translucentPass::build_pipeline(renderShared* rs)
 	auto depth = ptr->depth;
 	ASSERT(depth);
 
+	rhiGraphicsPipelineDesc desc;
+
 	auto vs = shaderio::load_shader_binary("E:\\Sponza\\build\\shaders\\translucent.vs.spv");
+#if DISABLE_OIT
+	auto fs = shaderio::load_shader_binary("E:\\Sponza\\build\\shaders\\translucent_disable_oit.ps.spv");
+	desc = rhiGraphicsPipelineDesc{
+		.vs = vs,
+		.fs = fs,
+		.color_formats = {rhiFormat::RGBA8_UNORM},
+		.depth_format = depth->desc.format,
+		.blend_states = {
+			rhiBlendState{
+				.src_color = rhiBlendFactor::one,
+				.dst_color = rhiBlendFactor::one_minus_src_alpha,
+				.src_alpha = rhiBlendFactor::one,
+				.dst_alpha = rhiBlendFactor::one_minus_src_alpha,
+				.color_blend = rhiBlendOp::add,
+				.alpha_blend = rhiBlendOp::add,
+				.color_write_mask = rhiColorComponentBit::r | rhiColorComponentBit::g | rhiColorComponentBit::b | rhiColorComponentBit::a
+			}
+		},
+		.raster_state = rhiRasterState{ .cull_mode = rhiCullMode::back },
+		.samples = rhiSampleCount::x1,
+		.depth_test = true,
+		.depth_write = false,
+			//.use_dynamic_cullmode = true,
+			.vertex_layout = rhiVertexAttribute{
+				.binding = 0,
+				.stride = sizeof(glTFVertex),
+				.vertex_attr_desc = {
+					rhiVertexAttributeDesc{ 0, 0, rhiFormat::RGB32_SFLOAT, offsetof(glTFVertex, position) },
+					rhiVertexAttributeDesc{ 1, 0, rhiFormat::RGB32_SFLOAT, offsetof(glTFVertex, normal) },
+					rhiVertexAttributeDesc{ 2, 0, rhiFormat::RG32_SFLOAT, offsetof(glTFVertex, uv) },
+					rhiVertexAttributeDesc{ 3, 0, rhiFormat::RGBA32_SFLOAT, offsetof(glTFVertex, tangent) },
+			}}
+	};
+#else
 	auto fs = shaderio::load_shader_binary("E:\\Sponza\\build\\shaders\\translucent.ps.spv");
-	rhiGraphicsPipelineDesc desc{
+	desc = rhiGraphicsPipelineDesc{
 		.vs = vs,
 		.fs = fs,
 		.color_formats = {accumulate_color_alpha->desc.format, revealage->desc.format},
@@ -255,14 +336,15 @@ void translucentPass::build_pipeline(renderShared* rs)
 			//reveal
 			rhiBlendState{
 				.src_color = rhiBlendFactor::zero,
-				.dst_color = rhiBlendFactor::one_minus_src_alpha,
+				.dst_color = rhiBlendFactor::one,
 				.src_alpha = rhiBlendFactor::zero,
-				.dst_alpha = rhiBlendFactor::one,
+				.dst_alpha = rhiBlendFactor::one_minus_src_alpha,
 				.color_blend = rhiBlendOp::add,
 				.alpha_blend = rhiBlendOp::add,
-				.color_write_mask = rhiColorComponentBit::r
+				.color_write_mask = rhiColorComponentBit::a
 			}
 		},
+		.raster_state = rhiRasterState{.cull_mode = rhiCullMode::back },
 		.samples = rhiSampleCount::x1,
 		.depth_test = true,
 		.depth_write = false,
@@ -277,6 +359,7 @@ void translucentPass::build_pipeline(renderShared* rs)
 				rhiVertexAttributeDesc{ 3, 0, rhiFormat::RGBA32_SFLOAT, offsetof(glTFVertex, tangent) },
 		}}
 	};
+#endif
 	pipeline = rs->context->create_graphics_pipeline(desc, pipeline_layout);
 
 	shaderio::free_shader_binary(vs);

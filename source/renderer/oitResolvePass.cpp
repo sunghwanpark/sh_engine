@@ -58,8 +58,8 @@ void oitResolvePass::build_pipeline(renderShared* rs)
 		.blend_states = { rhiBlendState{
 			.src_color = rhiBlendFactor::one,
 			.dst_color = rhiBlendFactor::one_minus_src_alpha,
-			.src_alpha = rhiBlendFactor::zero,
-			.dst_alpha = rhiBlendFactor::one,
+			.src_alpha = rhiBlendFactor::one,
+			.dst_alpha = rhiBlendFactor::one_minus_src_alpha,
 			.color_blend = rhiBlendOp::add,
 			.alpha_blend = rhiBlendOp::add,
 			.color_write_mask = rhiColorComponentBit::r | rhiColorComponentBit::g | rhiColorComponentBit::b | rhiColorComponentBit::a

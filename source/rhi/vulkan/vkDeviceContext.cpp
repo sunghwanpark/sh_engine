@@ -135,8 +135,8 @@ namespace
             // rasterizerDiscardEnable가 VK_TRUE면 VkPipelineRenderingCreateInfo의 depth format이 늘 UNDEFINED가 되어버린다.
             .rasterizerDiscardEnable = desc.fs.has_value() ? VK_FALSE : VK_TRUE,
             .polygonMode = VK_POLYGON_MODE_FILL,
-            .cullMode = VK_CULL_MODE_NONE,
-            .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+            .cullMode = vk_cullmode(desc.raster_state.cull_mode),
+            .frontFace = vk_frontface(desc.raster_state.front_face),
             .lineWidth = 1.f,
         };
         const VkPipelineMultisampleStateCreateInfo multisample{

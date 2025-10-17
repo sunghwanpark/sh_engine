@@ -29,7 +29,7 @@ private:
 	vec3 position = { 10.f, 6.f, 10.f };
 	f32 yaw = -135.f;
 	f32 pitch = -10.f;
-	f32 move_speed = 6.0f;
+	f32 move_speed = 5.0f;
 	f32 mouse_sens = 0.1f;
 	vec3 front = { 0.f, 0.f, -1.f };
 	vec3 up = { 0.f, 1.f, 0.f };

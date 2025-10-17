@@ -10,12 +10,17 @@ struct psIn
     float3 n : TEXCOORD3;
     float3 pos_w : TEXCOORD4;
     float3 view_w : TEXCOORD5;
+    float depth_linear : TEXCOORD6;
 };
 
 struct psOut 
 {
+#if DISABLE_OIT
+    float4 color : SV_Target0;
+#else
     float4 accum : SV_Target0;
-    float  reveal : SV_Target1;
+    float4  reveal : SV_Target1;
+#endif
 };
 
 cbuffer globals : register(b0, space0)
@@ -139,8 +144,12 @@ psOut main(psIn i)
     float alpha = saturate(albedo.a);
     if (albedo.a <= 1e-4)
     {
+#if DISABLE_OIT
+        o.color = 0;
+#else
         o.accum = 0; 
         o.reveal = 0; 
+#endif
         return o;
     }
 
@@ -176,9 +185,12 @@ psOut main(psIn i)
     float3 v = normalize(i.view_w);
     float3 l = normalize(-light_dir);
     float3 h = normalize(v + l);
+    n_w = faceforward(n, -v, n);
+
+    float nol_f = saturate(dot(n_w, l));
+    float nol_b = saturate(dot(-n_w, l));
 
     float nov = saturate(dot(n_w, v));
-    float nol = saturate(dot(n_w, l));
     float noh = saturate(dot(n_w, h));
     float voh = saturate(dot(v, h));
 
@@ -191,21 +203,44 @@ psOut main(psIn i)
 
     // ---- shadows ----
     float shadow = sample_shadow_PCF3x3(i.pos_w);
+    shadow = lerp(1.0, shadow, saturate(alpha));
+    const float shadow_floor = 0.5;
+    shadow = max(shadow, shadow_floor);
 
     // --- BRDF ---
     float  a = max(1e-3, roughness * roughness);
     float  d = D_GGX(noh, a);
-    float  vis = V_SmithGGXCorrelated(nov, nol, a);
-    float3 spec = d * vis * fv * nol;
-    float3 diffuse = kd * base_color * (nol / PI);
+    float  vis = V_SmithGGXCorrelated(nov, nol_f, a);
+    float3 spec = d * vis * fv * nol_f;
+    float3 diffuse = kd * base_color * (nol_f / PI);
+
+    // ---- simple back light ----
+    const float sss_strength = 0.5;
+    float3 sss_color = base_color; 
+    diffuse += sss_color * nol_b * sss_strength;
+
+    // ---- ambient ----
+    const float3 world_up = float3(0, 1, 0);
+    float hemi = 0.5f * dot(n, world_up) + 0.5f;
+
+    const float3 ambient_top = float3(0.04, 0.05, 0.06);
+    const float3 ambient_bottom = float3(0.02, 0.02, 0.02);
+
+    float3 ambient_lerp = lerp(ambient_bottom, ambient_top, hemi);
+    float3 ambient = ambient_lerp * kd * base_color;
 
     // ---- Lighting (single directional) ----
-    float3 lit = (diffuse + spec) * shadow;
+    float3 lit = ambient + (diffuse + spec);
 
+#if DISABLE_OIT
+    o.color = float4(lit * alpha, alpha);
+#else
     // ---- WOIT premultiplied output ----
-    float3 premul = lit * alpha;
-    o.accum = float4(premul, alpha);
-    o.reveal = alpha;
+    float w = saturate(1e-3 + 3e3 * exp(-8.0 * i.depth_linear * i.depth_linear));
+    float3 premul = lit * alpha * w;
+    o.accum = float4(premul, alpha * w);
+    o.reveal.a = alpha;
+#endif
 
     return o;
 }
