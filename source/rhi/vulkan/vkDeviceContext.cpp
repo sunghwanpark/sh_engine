@@ -10,7 +10,7 @@
 #include "vkPipeline.h"
 #include "vkCommandList.h"
 #include "vkImageViewCache.h"
-#include "vkBindlessTable.h"
+#include "vkTextureBindlessTable.h"
 #include "rhi/rhiDescriptor.h"
 #include "rhi/rhiSubmitInfo.h"
 
@@ -72,7 +72,7 @@ namespace
 
         std::vector<VkPipelineShaderStageCreateInfo> stages;
         // vs
-        VkShaderModule vs = VK_NULL_HANDLE, fs = VK_NULL_HANDLE;
+        VkShaderModule vs = VK_NULL_HANDLE, fs = VK_NULL_HANDLE, ms = VK_NULL_HANDLE;
         if (desc.vs.has_value())
         {
             vs = vk_create_shader(device, desc.vs.value());
@@ -81,6 +81,18 @@ namespace
                     .stage = VK_SHADER_STAGE_VERTEX_BIT,
                     .module = vs,
                     .pName = desc.vs.value().entry.length() > 0 ? desc.vs.value().entry.c_str() : "main"
+                });
+        }
+
+        // ms
+        if (desc.ms.has_value())
+        {
+            ms = vk_create_shader(device, desc.ms.value());
+            stages.push_back(VkPipelineShaderStageCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                    .stage = VK_SHADER_STAGE_MESH_BIT_EXT,
+                    .module = ms,
+                    .pName = desc.ms.value().entry.length() > 0 ? desc.ms.value().entry.c_str() : "main"
                 });
         }
 
@@ -96,31 +108,44 @@ namespace
                 });
         }
 
-        const VkVertexInputBindingDescription binding{
-            .binding = desc.vertex_layout.binding,
-            .stride = desc.vertex_layout.stride,
-            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+        VkPipelineVertexInputStateCreateInfo vertex_input{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
         };
-
+        VkVertexInputBindingDescription binding;
         std::vector<VkVertexInputAttributeDescription> vertex_attr_desc;
-        vertex_attr_desc.reserve(desc.vertex_layout.vertex_attr_desc.size());
-        for (const auto& desc : desc.vertex_layout.vertex_attr_desc)
+        if (desc.vertex_layout.has_value())
         {
-            vertex_attr_desc.push_back(VkVertexInputAttributeDescription{
-                .location = desc.location,
-                .binding = desc.binding,
-                .format = vk_format(desc.format),
-                .offset = desc.offset
-                });
-        }
+            auto v_layout = desc.vertex_layout.value();
+            binding = {
+                .binding = v_layout.binding,
+                .stride = v_layout.stride,
+                .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+            };
 
-        const VkPipelineVertexInputStateCreateInfo vertex_input{ 
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-            .vertexBindingDescriptionCount = 1,
-            .pVertexBindingDescriptions = &binding,
-            .vertexAttributeDescriptionCount = static_cast<u32>(vertex_attr_desc.size()),
-            .pVertexAttributeDescriptions = vertex_attr_desc.data()
-        };
+            vertex_attr_desc.reserve(v_layout.vertex_attr_desc.size());
+            for (const auto& desc : v_layout.vertex_attr_desc)
+            {
+                vertex_attr_desc.push_back(VkVertexInputAttributeDescription{
+                    .location = desc.location,
+                    .binding = desc.binding,
+                    .format = vk_format(desc.format),
+                    .offset = desc.offset
+                    });
+            }
+
+            vertex_input.vertexBindingDescriptionCount = 1;
+            vertex_input.pVertexBindingDescriptions = &binding;
+            vertex_input.vertexAttributeDescriptionCount = static_cast<u32>(vertex_attr_desc.size());
+            vertex_input.pVertexAttributeDescriptions = vertex_attr_desc.data();
+        }
+        else
+        {
+            vertex_input.vertexBindingDescriptionCount = 0;
+            vertex_input.pVertexBindingDescriptions = nullptr;
+            vertex_input.vertexAttributeDescriptionCount = 0;
+            vertex_input.pVertexAttributeDescriptions = nullptr;
+        }
+        
         const VkPipelineInputAssemblyStateCreateInfo input_assembly{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
             .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
@@ -294,9 +319,9 @@ bool vkDeviceContext::verify_phys_device() const
     return phys_device != VK_NULL_HANDLE;
 }
 
-std::unique_ptr<rhiBindlessTable> vkDeviceContext::create_bindless_table(const rhiBindlessDesc& desc, const u32 set_index)
+std::unique_ptr<rhiTextureBindlessTable> vkDeviceContext::create_bindless_table(const rhiTextureBindlessDesc& desc, const u32 set_index)
 {
-    return std::make_unique<vkBindlessTable>(this, desc, set_index);
+    return std::make_unique<vkTextureBindlessTable>(this, desc, set_index);
 }
 
 std::unique_ptr<rhiBuffer> vkDeviceContext::create_buffer(const rhiBufferDesc& desc)
@@ -341,14 +366,7 @@ rhiDescriptorSetLayout vkDeviceContext::create_descriptor_set_layout(const std::
 
     std::ranges::for_each(bindings, [&](const rhiDescriptorSetLayoutBinding& binding)
         {
-            VkShaderStageFlags stage{};
-            if (static_cast<u32>(binding.stage) & static_cast<u32>(rhiShaderStage::vertex))
-                stage |= VK_SHADER_STAGE_VERTEX_BIT;
-            if (static_cast<u32>(binding.stage) & static_cast<u32>(rhiShaderStage::fragment))
-                stage |= VK_SHADER_STAGE_FRAGMENT_BIT;
-            if (static_cast<u32>(binding.stage) & static_cast<u32>(rhiShaderStage::compute))
-                stage |= VK_SHADER_STAGE_COMPUTE_BIT;
-
+            VkShaderStageFlags stage = vk_shader_stage(binding.stage);
             const VkDescriptorSetLayoutBinding layout_binding
             {
                 .binding = binding.binding,

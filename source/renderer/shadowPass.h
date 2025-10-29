@@ -4,7 +4,7 @@
 
 class scene;
 class camera;
-class rhiBindlessTable;
+class rhiTextureBindlessTable;
 
 namespace shadowpass
 {
@@ -15,7 +15,7 @@ struct shadowInitContext : public drawInitContext
 {
 	scene* s;
 	vec2 framebuffer_size;
-	std::weak_ptr<rhiBindlessTable> bindless_table;
+	std::weak_ptr<rhiTextureBindlessTable> bindless_table;
 
 	virtual std::unique_ptr<drawInitContext> clone() const
 	{

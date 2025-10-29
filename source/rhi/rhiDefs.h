@@ -19,6 +19,13 @@ struct rhiDrawIndexedIndirect
     u32 first_instance;         // 4b
 };
 
+struct rhiDrawMeshShaderIndirect
+{
+    u32 groupcount_x;
+    u32 groupcount_y;
+    u32 groupcount_z; 
+};
+
 enum class rhiQueueType : u8
 {
     none = 1u << 0,
@@ -108,6 +115,7 @@ enum class rhiPipelineStage : u32
     vertex_shader = 1u << 3,
     fragment_shader = 1u << 4,
     compute_shader = 1u << 5,
+    mesh_shader = 1u << 6,
     color_attachment_output = 1u << 8,
     transfer = 1u << 9,
     copy = 1u << 10,
@@ -128,7 +136,8 @@ enum class rhiShaderStage : u32
     vertex = 1u << 0,
     fragment = 1u << 1,
     compute = 1u << 2,
-    all = 1u << 3
+    mesh = 1u << 3,
+    all = 1u << 4
 };
 
 inline rhiShaderStage operator|(rhiShaderStage a, rhiShaderStage b) 
@@ -357,4 +366,17 @@ enum class rhiCullmode
     none,
     cw,
     ccw
+};
+
+enum class rhiBindlessClass
+{
+    sampled_image,
+    sampler
+};
+
+struct rhiBindlessHandle
+{
+    rhiBindlessClass cls;
+    uint32_t index = 0xFFFFFFFFu; // invalid = UINT32_MAX
+    bool valid() const { return index != 0xFFFFFFFFu; }
 };

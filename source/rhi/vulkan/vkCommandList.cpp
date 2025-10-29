@@ -481,21 +481,7 @@ void vkCommandList::bind_descriptor_sets(rhiPipelineLayout layout, rhiPipelineTy
 
 void vkCommandList::push_constants(const rhiPipelineLayout layout, rhiShaderStage stages, u32 offset, u32 size, const void* data)
 {
-    VkShaderStageFlags stage{};
-    if (static_cast<u32>(stages) & static_cast<u32>(rhiShaderStage::all))
-    {
-        stage = VK_SHADER_STAGE_ALL;
-    }
-    else
-    {
-        if (static_cast<u32>(stages) & static_cast<u32>(rhiShaderStage::vertex))
-            stage |= VK_SHADER_STAGE_VERTEX_BIT;
-        if (static_cast<u32>(stages) & static_cast<u32>(rhiShaderStage::fragment))
-            stage |= VK_SHADER_STAGE_FRAGMENT_BIT;
-        if (static_cast<u32>(stages) & static_cast<u32>(rhiShaderStage::compute))
-            stage |= VK_SHADER_STAGE_COMPUTE_BIT;
-    }
-
+    VkShaderStageFlags stage = vk_shader_stage(stages);
     vkCmdPushConstants(cmd_buffer, get_vk_pipeline_layout(layout), stage, offset, size, data);
 }
 
@@ -516,6 +502,13 @@ void vkCommandList::draw_indexed_indirect(rhiBuffer* indirect_buffer, const u32 
     ASSERT(cmd_buffer != VK_NULL_HANDLE);
     VkBuffer buf = reinterpret_cast<VkBuffer>(indirect_buffer->native());
     vkCmdDrawIndexedIndirect(cmd_buffer, buf, VkDeviceSize(offset), draw_count, stride);
+}
+
+void vkCommandList::draw_mesh_tasks_indirect(rhiBuffer* indirect_buffer, const u32 offset, const u32 draw_count, const u32 stride)
+{
+    ASSERT(cmd_buffer != VK_NULL_HANDLE);
+    VkBuffer buf = reinterpret_cast<VkBuffer>(indirect_buffer->native());
+    vkCmdDrawMeshTasksIndirectEXT(cmd_buffer, buf, VkDeviceSize(offset), draw_count, stride);
 }
 
 void vkCommandList::draw_fullscreen()

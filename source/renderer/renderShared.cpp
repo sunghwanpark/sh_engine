@@ -26,7 +26,7 @@ void renderShared::Initialize(rhiDeviceContext* context, rhiFrameContext* frame_
     create_scene_color();
 }
 
-void renderShared::create_or_resize_buffer(std::shared_ptr<rhiBuffer>& buffer, const u32 bytes, const rhiBufferUsage usage, const rhiMem mem, const u32 stride)
+void renderShared::create_or_resize_buffer(std::shared_ptr<rhiBuffer>& buffer, const u32 bytes, const rhiBufferUsage usage, const rhiMem mem)
 {
     if (bytes == 0)
     {
@@ -40,13 +40,12 @@ void renderShared::create_or_resize_buffer(std::shared_ptr<rhiBuffer>& buffer, c
         {
             .size = bytes,
             .usage = usage,
-            .memory = mem,
-            .stride = stride
+            .memory = mem
         });
     buffer = std::move(buf);
 }
 
-void renderShared::create_or_resize_buffer(std::unique_ptr<rhiBuffer>& buffer, const u32 bytes, const rhiBufferUsage usage, const rhiMem mem, const u32 stride)
+void renderShared::create_or_resize_buffer(std::unique_ptr<rhiBuffer>& buffer, const u32 bytes, const rhiBufferUsage usage, const rhiMem mem)
 {
     if (bytes == 0)
     {
@@ -60,8 +59,7 @@ void renderShared::create_or_resize_buffer(std::unique_ptr<rhiBuffer>& buffer, c
         {
             .size = bytes,
             .usage = usage,
-            .memory = mem,
-            .stride = stride
+            .memory = mem
         });
 }
 
@@ -80,7 +78,7 @@ void renderShared::buffer_barrier(rhiBuffer* buffer, const rhiBufferBarrierDescr
 void renderShared::upload_to_device(rhiBuffer* buffer, const void* src, const u32 bytes, const u32 dst_offset)
 {
     ASSERT(dst_offset + bytes <= buffer->size());
-    ASSERT((dst_offset % 4) == 0 && (bytes % 4) == 0);
+    ASSERTF((dst_offset % 4) == 0 && (bytes % 4) == 0, "bytes : %d dst_offset : %d", bytes, dst_offset);
 
     auto staging_buffer = context->create_buffer(rhiBufferDesc
         {

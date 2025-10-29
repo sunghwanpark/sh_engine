@@ -68,6 +68,11 @@ struct glTFSubmesh
 
 	mat4 model;
 
+	std::vector<meshopt_Meshlet> meshlets;
+	std::vector<meshopt_Bounds> meshlet_bounds;
+	std::vector<u32> meshlet_vertices;
+	std::vector<u8> meshlet_triangles;
+
 	u64 hash(u64 h = 1469598103934665603ull) const
 	{
 		h = hash_combine(h, firstIndex);

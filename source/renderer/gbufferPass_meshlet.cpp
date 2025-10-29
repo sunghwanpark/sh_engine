@@ -1,14 +1,9 @@
-﻿#include "gbufferPass.h"
+﻿#include "gbufferPass_meshlet.h"
 #include "renderShared.h"
-#include "rhi/rhiCommandList.h"
-#include "rhi/rhiDefs.h"
-#include "rhi/rhiTextureView.h"
 #include "rhi/rhiDeviceContext.h"
-#include "rhi/rhiBuffer.h"
-#include "rhi/rhiTextureBindlessTable.h"
-#include "mesh/glTFMesh.h"
+#include "rhi/rhiCommandList.h"
 
-void gbufferPass::initialize(const drawInitContext& context)
+void gbufferPass_meshlet::initialize(const drawInitContext& context)
 {
     rhiTextureDesc td_color
     {
@@ -54,93 +49,37 @@ void gbufferPass::initialize(const drawInitContext& context)
     drawPass::initialize(context);
 }
 
-void gbufferPass::resize(renderShared* rs, u32 w, u32 h, u32 layers)
+void gbufferPass_meshlet::build_layouts(renderShared* rs)
 {
-    if (!initialized)
-        return;
-
-    drawPass::resize(rs, w, h, layers);
-    gbuffer_a.reset();
-    gbuffer_b.reset();
-    gbuffer_c.reset();
-    build_attachments(rs->context);
-}
-
-void gbufferPass::shutdown()
-{
-    drawPass::shutdown();
-    gbuffer_a.reset();
-    gbuffer_b.reset();
-    gbuffer_c.reset();
-    initialized = false;
-}
-
-void gbufferPass::begin(rhiCommandList* cmd)
-{
-    drawPass::begin(cmd);
-
-    auto ptr = static_cast<gbufferInitContext*>(init_context.get());
-    ASSERT(ptr);
-
-    auto table_ptr = ptr->bindless_table.lock();
-    ASSERT(table_ptr);
-    table_ptr->bind_once(cmd, pipeline_layout, 2);
-}
-
-void gbufferPass::draw(rhiCommandList* cmd)
-{
-    auto buffer_ptr = indirect_buffer->at(static_cast<u8>(draw_type));
-    auto group_record = group_records->at(static_cast<u8>(draw_type));
-    cmd->bind_pipeline(pipeline.get());
-
-    constexpr u32 stride = sizeof(rhiDrawIndexedIndirect);
-    for (const auto& g : group_record)
-    {
-        push_constants(cmd, g);
-        cmd->bind_vertex_buffer(const_cast<rhiBuffer*>(g.vbo), 0, 0);
-        cmd->bind_index_buffer(const_cast<rhiBuffer*>(g.ibo), 0);
-        const u32 byte_offset = g.first_cmd * stride;
-        cmd->draw_indexed_indirect(buffer_ptr.get(), byte_offset, g.cmd_count, stride);
-    }
-}
-
-void gbufferPass::build_layouts(renderShared* rs)
-{
-    // gbuffer b0, t0 + s0, t0
-    set_globals = rs->context->create_descriptor_set_layout(
+    layout_globals = rs->context->create_descriptor_set_layout(
         {
             {
                 .binding = 0,
                 .type = rhiDescriptorType::uniform_buffer,
                 .count = 1,
-                .stage = rhiShaderStage::vertex | rhiShaderStage::fragment
+                .stage = rhiShaderStage::mesh
             },
         }, 0);
 
-    set_instances = rs->context->create_descriptor_set_layout(
-        {
-            {
-                .binding = 0,
-                .type = rhiDescriptorType::storage_buffer,
-                .count = 1,
-                .stage = rhiShaderStage::vertex
-            }
-        }, 1);
+    build_meshlet_descriptor_layout(1);
 
-    auto ptr = static_cast<gbufferInitContext*>(init_context.get());
+    auto ptr = static_cast<gbufferPass_meshletInitContext*>(init_context.get());
     ASSERT(ptr);
 
     auto table_ptr = ptr->bindless_table.lock();
     ASSERT(table_ptr);
 
-    set_material = table_ptr->get_set_layout();
-    create_pipeline_layout(rs, { set_globals, set_instances, set_material }, { { rhiShaderStage::fragment, sizeof(materialPC) } });
-    create_descriptor_sets(rs, { set_globals, set_instances });
+    layout_material = table_ptr->get_set_layout();
+    create_pipeline_layout(rs, { layout_globals, layout_meshlet, layout_material },
+        { 
+            { rhiShaderStage::mesh | rhiShaderStage::fragment, sizeof(drawParamIndex) + sizeof(materialPC) }
+        });
+    create_descriptor_sets(rs, { layout_globals, layout_meshlet });
 }
 
-void gbufferPass::build_attachments(rhiDeviceContext* context)
+void gbufferPass_meshlet::build_attachments(rhiDeviceContext* context)
 {
-    render_info.renderpass_name = "gbuffer";
+    render_info.renderpass_name = "gbuffer_meshlet";
     render_info.samples = rhiSampleCount::x1;
     render_info.color_formats = { rhiFormat::RGBA8_UNORM, rhiFormat::RGBA8_UNORM, rhiFormat::RGBA8_UNORM };
     render_info.depth_format = rhiFormat::D32S8;
@@ -193,36 +132,60 @@ void gbufferPass::build_attachments(rhiDeviceContext* context)
     render_info.depth_attachment = depth_attachment;
 }
 
-void gbufferPass::build_pipeline(renderShared* rs)
+void gbufferPass_meshlet::build_pipeline(renderShared* rs)
 {
-    auto vs = shaderio::load_shader_binary("E:\\Sponza\\build\\shaders\\gbuffer.vs.spv");
-    auto fs = shaderio::load_shader_binary("E:\\Sponza\\build\\shaders\\gbuffer.ps.spv");
+    auto ms = shaderio::load_shader_binary("E:\\Sponza\\build\\shaders\\gbuffer.ms.spv");
+    auto fs = shaderio::load_shader_binary("E:\\Sponza\\build\\shaders\\gbuffer_meshlet.ps.spv");
     rhiGraphicsPipelineDesc desc{
-        .vs = vs,
         .fs = fs,
+        .ms = ms,
         .color_formats = {gbuffer_a->desc.format, gbuffer_b->desc.format, gbuffer_c->desc.format},
         .depth_format = depth->desc.format,
         .samples = rhiSampleCount::x1,
         .depth_test = true,
-        .depth_write = true,
-        //.use_dynamic_cullmode = true,
-        .vertex_layout = rhiVertexAttribute{
-            .binding = 0,
-            .stride = sizeof(glTFVertex),
-            .vertex_attr_desc = {
-                rhiVertexAttributeDesc{ 0, 0, rhiFormat::RGB32_SFLOAT, offsetof(glTFVertex, position) },
-                rhiVertexAttributeDesc{ 1, 0, rhiFormat::RGB32_SFLOAT, offsetof(glTFVertex, normal) },
-                rhiVertexAttributeDesc{ 2, 0, rhiFormat::RG32_SFLOAT, offsetof(glTFVertex, uv) },
-                rhiVertexAttributeDesc{ 3, 0, rhiFormat::RGBA32_SFLOAT, offsetof(glTFVertex, tangent) },
-        }}
+        .depth_write = true
     };
     pipeline = rs->context->create_graphics_pipeline(desc, pipeline_layout);
 
-    shaderio::free_shader_binary(vs);
+    shaderio::free_shader_binary(ms);
     shaderio::free_shader_binary(fs);
 }
 
-void gbufferPass::begin_barrier(rhiCommandList* cmd)
+void gbufferPass_meshlet::begin(rhiCommandList* cmd)
+{
+    drawPass::begin(cmd);
+
+    auto ptr = static_cast<gbufferPass_meshletInitContext*>(init_context.get());
+    ASSERT(ptr);
+
+    auto table_ptr = ptr->bindless_table.lock();
+    ASSERT(table_ptr);
+    table_ptr->bind_once(cmd, pipeline_layout, 2);
+}
+
+void gbufferPass_meshlet::draw(rhiCommandList* cmd)
+{
+    auto buffer_ptr = indirect_buffer->at(static_cast<u8>(draw_type));
+    auto group_record = group_records->at(static_cast<u8>(draw_type));
+    cmd->bind_pipeline(pipeline.get());
+
+    constexpr u32 stride = sizeof(rhiDrawMeshShaderIndirect);
+    for (const auto& g : group_record)
+    {
+        drawParamIndex idx{
+            .dp_index = g.first_cmd
+        };
+        cmd->push_constants(pipeline_layout, rhiShaderStage::mesh | rhiShaderStage::fragment, 0, sizeof(idx), &idx);
+
+        materialPC pc = g;
+        cmd->push_constants(pipeline_layout, rhiShaderStage::mesh | rhiShaderStage::fragment, sizeof(drawParamIndex), sizeof(pc), &pc);
+
+        const u32 byte_offset = g.first_cmd * stride;
+        cmd->draw_mesh_tasks_indirect(buffer_ptr.get(), byte_offset, g.cmd_count, stride);
+    }
+}
+
+void gbufferPass_meshlet::begin_barrier(rhiCommandList* cmd)
 {
     if (is_first_frame)
     {
@@ -230,7 +193,6 @@ void gbufferPass::begin_barrier(rhiCommandList* cmd)
         cmd->image_barrier(gbuffer_b.get(), rhiImageLayout::undefined, rhiImageLayout::color_attachment, 0, 1, 0, gbuffer_b->desc.layers);
         cmd->image_barrier(gbuffer_c.get(), rhiImageLayout::undefined, rhiImageLayout::color_attachment, 0, 1, 0, gbuffer_c->desc.layers);
         cmd->image_barrier(depth.get(), rhiImageLayout::undefined, rhiImageLayout::depth_stencil_attachment, 0, 1, 0, depth->desc.layers);
-        is_first_frame = false;
     }
     else
     {
@@ -241,43 +203,10 @@ void gbufferPass::begin_barrier(rhiCommandList* cmd)
     }
 }
 
-void gbufferPass::end_barrier(rhiCommandList* cmd)
+void gbufferPass_meshlet::end_barrier(rhiCommandList* cmd)
 {
     cmd->image_barrier(gbuffer_a.get(), rhiImageLayout::color_attachment, rhiImageLayout::shader_readonly, 0, 1, 0, gbuffer_a->desc.layers);
     cmd->image_barrier(gbuffer_b.get(), rhiImageLayout::color_attachment, rhiImageLayout::shader_readonly, 0, 1, 0, gbuffer_b->desc.layers);
     cmd->image_barrier(gbuffer_c.get(), rhiImageLayout::color_attachment, rhiImageLayout::shader_readonly, 0, 1, 0, gbuffer_c->desc.layers);
     cmd->image_barrier(depth.get(), rhiImageLayout::depth_stencil_attachment, rhiImageLayout::shader_readonly, 0, 1, 0, depth->desc.layers);
-}
-
-void gbufferPass::update(renderShared* rs, const rhiBuffer* global_buffer)
-{
-    update_globals(rs, global_buffer, 0);
-    update_instances(rs, 1);
-}
-
-void gbufferPass::update_globals(renderShared* rs, const rhiBuffer* global_buffer, const u32 offset)
-{
-    if (!global_buffer)
-        return;
-
-    const rhiDescriptorBufferInfo buffer_info{
-        .buffer = const_cast<rhiBuffer*>(global_buffer),
-        .offset = offset,
-        .range = sizeof(globalsCB)
-    };
-    const rhiWriteDescriptor write_desc{
-        .set = descriptor_sets[image_index.value()][0],
-        .binding = 0,
-        .array_index = 0,
-        .count = 1,
-        .type = rhiDescriptorType::uniform_buffer,
-        .buffer = { buffer_info }
-    };
-    rs->context->update_descriptors({ write_desc });
-}
-
-void gbufferPass::push_constants(rhiCommandList* cmd, const groupRecord& g)
-{
-    materialPC pc = g;
-    cmd->push_constants(pipeline_layout, rhiShaderStage::fragment, 0, sizeof(pc), &pc);
 }

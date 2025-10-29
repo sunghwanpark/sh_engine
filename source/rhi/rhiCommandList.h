@@ -43,6 +43,7 @@ public:
     virtual void set_cullmode(const rhiCullMode cull_mode) = 0;
 
     virtual void draw_indexed_indirect(rhiBuffer* indirect_buffer, const u32 offset, const u32 draw_count, const u32 stride) = 0;
+    virtual void draw_mesh_tasks_indirect(rhiBuffer* indirect_buffer, const u32 offset, const u32 draw_count, const u32 stride) = 0;
     virtual void draw_fullscreen() = 0;
 
     virtual void dispatch(const u32 x, const u32 y, const u32 z) = 0;

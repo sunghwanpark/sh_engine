@@ -210,6 +210,6 @@ void compositePass::create_composite_cbuffer(renderShared* rs)
     composite_buffers.resize(swapchain_views.size());
     std::ranges::for_each(composite_buffers, [&](std::unique_ptr<rhiBuffer>& buf)
         {
-            rs->create_or_resize_buffer(buf, sizeof(compositeCB), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device, sizeof(compositeCB));
+            rs->create_or_resize_buffer(buf, sizeof(compositeCB), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device);
         });
 }

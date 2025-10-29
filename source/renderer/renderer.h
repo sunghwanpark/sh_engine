@@ -4,7 +4,13 @@
 #include "rhi/rhiDefs.h"
 #include "renderer/renderShared.h"
 #include "renderer/shadowPass.h"
+#if MESHLET
+#include "renderer/gbufferPass_meshlet.h"
+#include "meshlet/meshletDef.h"
+using namespace meshlet;
+#else
 #include "renderer/gbufferPass.h"
+#endif
 #include "renderer/skyPass.h"
 #include "renderer/lightingPass.h"
 #include "renderer/translucentPass.h"
@@ -21,6 +27,7 @@ class rhiTexture;
 class rhiFrameContext;
 class rhiCommandList;
 class rhiBindlessTable;
+class meshActor;
 
 class renderer
 {
@@ -98,7 +105,14 @@ private:
 	};
 
 	void prepare(scene* s);
+#if MESHLET
+	void build_meshlet(scene* s);
+	void build_meshlet_drawcommand(scene* s);
+	void build_meshlet_global_vertices(meshActor* a, meshlet::buildOut& out);
+	void build_meshlet_ssbo(const meshlet::buildOut* out);
+#else
 	void build(scene* s, rhiDeviceContext* context);
+#endif
 	void notify_nextimage_index_to_drawpass(const u32 image_index);
 	std::shared_ptr<rhiRenderResource> get_or_create_resource(const std::shared_ptr<glTFMesh> raw_mesh);
 	void create_ringbuffer(const u32 frame_size);
@@ -109,7 +123,11 @@ private:
 
 	renderShared render_shared;
 	shadowPass shadow_pass;
+#if MESHLET
+	gbufferPass_meshlet gbuffer_pass;
+#else
 	gbufferPass gbuffer_pass;
+#endif
 	skyPass sky_pass;
 	lightingPass lighting_pass;
 	translucentPass translucent_pass;
@@ -129,7 +147,12 @@ private:
 	std::vector<std::unique_ptr<rhiBuffer>> global_ringbuffer;
 
 	// actors bindless table
-	std::shared_ptr<rhiBindlessTable> bindless_table;
+	std::shared_ptr<rhiTextureBindlessTable> bindless_table;
+	
+	// meshlet
+	drawTypeBuffers meshlet_draw_buffer;
+	meshletBuffer meshlet_ssbo;
+	// end meshlet
 
 	bool initialized = false;
 	u32vec2 framebuffer_size = { 0, 0 };

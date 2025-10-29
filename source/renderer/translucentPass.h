@@ -2,10 +2,10 @@
 
 #include "indirectDrawPass.h"
 
-class rhiBindlessTable;
+class rhiTextureBindlessTable;
 struct translucentInitContext : public drawInitContext
 {
-    std::weak_ptr<rhiBindlessTable> bindless_table;
+    std::weak_ptr<rhiTextureBindlessTable> bindless_table;
     rhiTexture* depth;
 #if DISABLE_OIT
     std::weak_ptr<rhiTexture> scene_color;

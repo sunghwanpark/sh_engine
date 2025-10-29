@@ -66,7 +66,6 @@ void rhiRenderResource::upload(renderShared* rs, textureCache* tex_cache)
 		.size = vb_bytes,
 		.usage = rhiBufferUsage::vertex | rhiBufferUsage::transfer_dst,
 		.memory = rhiMem::auto_device,
-		.stride = sizeof(glTFVertex)
 	};
 	rhiBufferDesc ib_desc
 	{
@@ -107,15 +106,57 @@ void rhiRenderResource::rebuild_submeshes(textureCache* tex_cache, glTFMesh* raw
 	materials.reserve(raw_mesh->submeshes.size());
 	for (u32 i = 0; i < raw_mesh->submeshes.size(); ++i) 
 	{
-		const auto& s = raw_mesh->submeshes[i];
+		auto& s = raw_mesh->submeshes[i];
 		submeshes.push_back(subMesh
 			{ 
 				.first_index = s.firstIndex,
 				.index_count = s.indexCount,
 				.model = s.model,
-				.material_slot = static_cast<u32>(i) 
+				.material_slot = static_cast<u32>(i),
+				.meshlets = &s.meshlets,
+				.meshlet_bounds = &s.meshlet_bounds,
+				.meshlet_vertices = &s.meshlet_vertices,
+				.meshlet_triangles = &s.meshlet_triangles
 			});
 		
+		materials.push_back(material{
+			.base_color = tex_cache->get_or_create(s.base_tex, true),
+			.norm_color = tex_cache->get_or_create(s.normal_tex, false),
+			.m_r_color = tex_cache->get_or_create(s.metalic_roughness_tex, false),
+			.base_sampler = tex_cache->get_or_create(get_sampler_desc(s.base_sampler)),
+			.norm_sampler = tex_cache->get_or_create(get_sampler_desc(s.norm_sampler)),
+			.m_r_sampler = tex_cache->get_or_create(get_sampler_desc(s.m_r_sampler)),
+			.alpha_cutoff = s.alpha_cutoff,
+			.metalic_factor = s.metalic_factor,
+			.roughness_factor = s.roughness_factor,
+			.is_translucent = s.is_alpha_blend,
+			.is_double_sided = s.is_double_sided
+			});
+	}
+}
+
+void rhiRenderResource::make_meshlet_resource(textureCache* tex_cache)
+{
+	ASSERT(!raw_data.expired());
+	auto raw_mesh = raw_data.lock();
+
+	submeshes.clear();
+	materials.reserve(raw_mesh->submeshes.size());
+	for (u32 i = 0; i < raw_mesh->submeshes.size(); ++i)
+	{
+		auto& s = raw_mesh->submeshes[i];
+		submeshes.push_back(subMesh
+			{
+				.first_index = s.firstIndex,
+				.index_count = s.indexCount,
+				.model = s.model,
+				.material_slot = static_cast<u32>(i),
+				.meshlets = &s.meshlets,
+				.meshlet_bounds = &s.meshlet_bounds,
+				.meshlet_vertices = &s.meshlet_vertices,
+				.meshlet_triangles = &s.meshlet_triangles
+			});
+
 		materials.push_back(material{
 			.base_color = tex_cache->get_or_create(s.base_tex, true),
 			.norm_color = tex_cache->get_or_create(s.normal_tex, false),

@@ -380,6 +380,8 @@ inline VkPipelineStageFlags2 vk_pipeline_stage2(rhiPipelineStage stage)
         vk_flags |= VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
     if (has_<rhiPipelineStage>(stage, rhiPipelineStage::late_fragment_test))
         vk_flags |= VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+    if (has_<rhiPipelineStage>(stage, rhiPipelineStage::mesh_shader))
+        vk_flags |= VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
 
     return vk_flags;    
 }
@@ -459,6 +461,8 @@ inline VkShaderStageFlags vk_shader_stage(rhiShaderStage s)
             stage |= VK_SHADER_STAGE_FRAGMENT_BIT;
         if (static_cast<u32>(s) & static_cast<u32>(rhiShaderStage::compute))
             stage |= VK_SHADER_STAGE_COMPUTE_BIT;
+        if (static_cast<u32>(s) & static_cast<u32>(rhiShaderStage::mesh))
+            stage |= VK_SHADER_STAGE_MESH_BIT_EXT;
     }
     ASSERT(stage != 0);
     return stage;

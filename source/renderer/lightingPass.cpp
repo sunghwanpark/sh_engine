@@ -14,9 +14,9 @@ void lightingPass::initialize(const drawInitContext& context)
 	ibl_param_cbuffer.resize(init_context->rs->frame_context->get_frame_size());
 	for (u32 i = 0; i < init_context->rs->frame_context->get_frame_size(); ++i)
 	{
-		init_context->rs->create_or_resize_buffer(camera_cbuffer[i], sizeof(lightingPass::cam), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device, 0);
-		init_context->rs->create_or_resize_buffer(light_cbuffer[i], sizeof(lightingPass::light), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device, 0);
-		init_context->rs->create_or_resize_buffer(ibl_param_cbuffer[i], sizeof(lightingPass::light), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device, 0);
+		init_context->rs->create_or_resize_buffer(camera_cbuffer[i], sizeof(lightingPass::cam), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device);
+		init_context->rs->create_or_resize_buffer(light_cbuffer[i], sizeof(lightingPass::light), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device);
+		init_context->rs->create_or_resize_buffer(ibl_param_cbuffer[i], sizeof(lightingPass::light), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device);
 	}
 }
 
@@ -51,7 +51,11 @@ void lightingPass::update_cbuffers(renderShared* rs, camera* camera, const vec3&
 		.inv_proj = glm::inverse(camera->proj(vec2(init_context->w, init_context->h))),
 		.inv_view = glm::inverse(camera->view()),
 		.near_far = vec2(camera->get_near(), camera->get_far()),
+#if MESHLET
+		.cascade_splits = vec4(0.f),
+#else
 		.cascade_splits = vec4(cascade_splits[0], cascade_splits[1], cascade_splits[2], cascade_splits[3]),
+#endif
 		.light_dir = light_dir,
 		.shadow_mapsize = vec2(shadow_resolution, shadow_resolution),
 	};

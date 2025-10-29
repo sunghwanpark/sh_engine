@@ -289,6 +289,7 @@ bool vkCmdCenter::create_logical_device()
 
     std::vector<const char*> device_extension_names = { 
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_EXT_MESH_SHADER_EXTENSION_NAME,
 #if ENABLE_AFTERMATH 
         VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME,
         VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME,
@@ -311,6 +312,9 @@ bool vkCmdCenter::create_logical_device()
     VkPhysicalDeviceExtendedDynamicState2FeaturesEXT dys_deature2{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT
     };
+    VkPhysicalDeviceMeshShaderFeaturesEXT ms_feature{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT
+    };
     VkPhysicalDeviceVulkan11Features v11{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES
     };
@@ -321,7 +325,8 @@ bool vkCmdCenter::create_logical_device()
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
     };
     dys_feature.pNext = &dys_deature2;
-    dys_deature2.pNext = &v11;
+    dys_deature2.pNext = &ms_feature;
+    ms_feature.pNext = &v11;
     v11.pNext = &v12;
     v12.pNext = &v13;
     VkPhysicalDeviceFeatures2 device_features2{
@@ -347,6 +352,9 @@ bool vkCmdCenter::create_logical_device()
     v11.shaderDrawParameters = VK_TRUE;
     dys_feature.extendedDynamicState = VK_TRUE;
     dys_deature2.extendedDynamicState2 = VK_TRUE;
+    ms_feature.meshShader = VK_TRUE;
+    ms_feature.taskShader = VK_TRUE;
+    ms_feature.primitiveFragmentShadingRateMeshShader = VK_FALSE;
 
     device_create_info.pEnabledFeatures = nullptr;
 #if ENABLE_AFTERMATH

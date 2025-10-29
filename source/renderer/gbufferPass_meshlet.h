@@ -1,34 +1,37 @@
 ﻿#pragma once
 
-#include "indirectDrawPass.h"
+#include "meshletDrawPass.h"
 
 class rhiTextureBindlessTable;
 class rhiDeviceContext;
 struct rhiBindlessHandle;
 
-struct gbufferInitContext : public drawInitContext
+struct gbufferPass_meshletInitContext : public drawInitContext
 {
     std::weak_ptr<rhiTextureBindlessTable> bindless_table;
     std::unique_ptr<drawInitContext> clone() const override
     {
-        return std::make_unique<gbufferInitContext>(*this);
+        return std::make_unique<gbufferPass_meshletInitContext>(*this);
     }
 };
 
-class gbufferPass final : public indirectDrawPass
+class gbufferPass_meshlet final : public meshletDrawPass
 {
 public:
+    struct alignas(16) drawParamIndex
+    {
+        u32 dp_index; // 4b
+        u32 __pad[3]; // 12b
+    }; // 16b
+
+public:
     void initialize(const drawInitContext& context) override;
-    void resize(renderShared* rs, u32 w, u32 h, u32 layers = 1) override;
-    void shutdown() override;
     void begin(rhiCommandList* cmd) override;
     void draw(rhiCommandList* cmd) override;
     void begin_barrier(rhiCommandList* cmd) override;
     void end_barrier(rhiCommandList* cmd) override;
 
-    void update(renderShared* rs, const rhiBuffer* global_buffer);
-    void push_constants(rhiCommandList* cmd, const groupRecord& g);
-
+public:
     rhiTexture* get_gbuffer_a() const { return gbuffer_a.get(); }
     rhiTexture* get_gbuffer_b() const { return gbuffer_b.get(); }
     rhiTexture* get_gbuffer_c() const { return gbuffer_c.get(); }
@@ -40,20 +43,11 @@ protected:
     void build_pipeline(renderShared* rs) override;
 
 private:
-    void update_globals(renderShared* rs, const rhiBuffer* global_buffer, const u32 offset);
-
-private:
     std::unique_ptr<rhiTexture> gbuffer_a;
     std::unique_ptr<rhiTexture> gbuffer_b;
     std::unique_ptr<rhiTexture> gbuffer_c;
     std::unique_ptr<rhiTexture> depth;
 
-    // set=0: Globals (b0)
-    rhiDescriptorSetLayout set_globals;
-    // set=1: Material (t0 + s0)
-    rhiDescriptorSetLayout set_material;
-    // set=2: Instances (t0)
-    rhiDescriptorSetLayout set_instances;
-    
-    bool is_first_frame = true;
+    rhiDescriptorSetLayout layout_globals;
+    rhiDescriptorSetLayout layout_material;
 };

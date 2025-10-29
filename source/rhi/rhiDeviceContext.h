@@ -6,7 +6,7 @@
 #include "rhi/rhiSampler.h"
 #include "rhi/rhiDescriptor.h"
 #include "rhi/rhiPipeline.h"
-#include "rhi/rhiBindlessTable.h"
+#include "rhi/rhiTextureBindlessTable.h"
 
 class rhiCommandList;
 class rhiFence;
@@ -20,7 +20,7 @@ public:
     virtual ~rhiDeviceContext() = default;
 
     virtual std::unique_ptr<rhiCommandList> create_commandlist(u32 queue_family) = 0;
-    virtual std::unique_ptr<rhiBindlessTable> create_bindless_table(const rhiBindlessDesc& desc, const u32 set_index = 0) = 0;
+    virtual std::unique_ptr<rhiTextureBindlessTable> create_bindless_table(const rhiTextureBindlessDesc& desc, const u32 set_index = 0) = 0;
     virtual std::unique_ptr<rhiBuffer> create_buffer(const rhiBufferDesc& desc) = 0;
     virtual std::unique_ptr<rhiTexture> create_texture(const rhiTextureDesc& desc) = 0;
     virtual std::unique_ptr<rhiTexture> create_texture_from_path(std::string_view path, bool is_hdr = false, bool srgb = true) = 0;

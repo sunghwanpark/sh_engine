@@ -45,6 +45,7 @@ struct rhiGraphicsPipelineDesc
 {
     std::optional<rhiShaderBinary> vs;
     std::optional<rhiShaderBinary> fs;
+    std::optional<rhiShaderBinary> ms;
     std::vector<rhiFormat> color_formats;
     std::optional<rhiFormat> depth_format;
     std::vector<rhiBlendState> blend_states;
@@ -55,7 +56,7 @@ struct rhiGraphicsPipelineDesc
     bool depth_write = true;
     bool use_dynamic_cullmode = false;
 
-    rhiVertexAttribute vertex_layout;
+    std::optional<rhiVertexAttribute> vertex_layout;
 };
 
 struct rhiComputePipelineDesc 

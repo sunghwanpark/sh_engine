@@ -38,6 +38,7 @@ public:
     void set_cullmode(const rhiCullMode cull_mode) override;
 
     void draw_indexed_indirect(rhiBuffer* indirect_buffer, const u32 offset, const u32 draw_count, const u32 stride) override;
+    void draw_mesh_tasks_indirect(rhiBuffer* indirect_buffer, const u32 offset, const u32 draw_count, const u32 stride) override;
     void draw_fullscreen() override;
 
     void dispatch(const u32 x, const u32 y, const u32 z) override;

@@ -222,6 +222,10 @@ glTFMesh::glTFMesh(const std::string_view path)
         collectNodes(scene->nodes[i], mat4(1.f), draws);
     }
 
+    const u32 max_vertices = 64;
+    const u32 max_triangles = 128; // note: in v0.25 or prior, max_triangles needs to be divisible by 4
+    const f32 cone_weight = 0.0f;
+
     // 모든 primitive 처리
     for (auto& nd : draws)
     {
@@ -427,6 +431,28 @@ glTFMesh::glTFMesh(const std::string_view path)
         sm.norm_sampler = norm_sampler;
         sm.m_r_sampler = m_r_sampler;
         sm.model = nd.model;
+
+        const u32 max_meshlets = meshopt_buildMeshletsBound(sm.indexCount, max_vertices, max_triangles);
+        sm.meshlets.resize(max_meshlets);
+        sm.meshlet_bounds.resize(max_meshlets);
+        sm.meshlet_vertices.resize(max_meshlets* max_vertices);
+        sm.meshlet_triangles.resize(max_meshlets* max_triangles * 3); // note: in v0.25 or prior, use indices.size() + max_meshlets * 3
+
+        const u32 meshlet_count = meshopt_buildMeshlets(sm.meshlets.data(), sm.meshlet_vertices.data(), sm.meshlet_triangles.data(), &indices[baseIndex],
+            sm.indexCount, &vertices[0].position.x, vertices.size(), sizeof(glTFVertex), max_vertices, max_triangles, cone_weight);
+
+        const meshopt_Meshlet& last = sm.meshlets[meshlet_count - 1];
+        sm.meshlet_vertices.resize(last.vertex_offset + last.vertex_count);
+        sm.meshlet_triangles.resize(last.triangle_offset + last.triangle_count * 3);
+        sm.meshlets.resize(meshlet_count);
+        for (u32 index = 0; index < sm.meshlets.size(); ++index)
+        {
+            const auto& m = sm.meshlets[index];
+            meshopt_optimizeMeshlet(&sm.meshlet_vertices[m.vertex_offset], &sm.meshlet_triangles[m.triangle_offset], m.triangle_count, m.vertex_count);
+            sm.meshlet_bounds[index] = meshopt_computeMeshletBounds(&sm.meshlet_vertices[m.vertex_offset], &sm.meshlet_triangles[m.triangle_offset],
+                m.triangle_count, &vertices[0].position.x, vertices.size(), sizeof(glTFVertex));
+        }
+
         submeshes.push_back(std::move(sm));
     }
 

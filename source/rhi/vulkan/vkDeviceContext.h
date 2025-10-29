@@ -13,12 +13,12 @@ struct rhiSamplerDesc;
 struct vkDescriptorSetLayoutHolder;
 struct vkDescriptorPoolHolder;
 struct vkPipelineLayoutHolder;
-struct rhiBindlessDesc;
+struct rhiTextureBindlessDesc;
 class vkImageViewCache;
 class rhiSampler;
 class rhiSemaphore;
 class rhiFence;
-class rhiBindlessTable;
+class rhiTextureBindlessTable;
 
 class vkDeviceContext final : public rhiDeviceContext
 {
@@ -26,7 +26,7 @@ public:
 	virtual ~vkDeviceContext();
 
 	std::unique_ptr<rhiCommandList> create_commandlist(u32 queue_family) override;
-	std::unique_ptr<rhiBindlessTable> create_bindless_table(const rhiBindlessDesc& desc, const u32 set_index = 0) override;
+	std::unique_ptr<rhiTextureBindlessTable> create_bindless_table(const rhiTextureBindlessDesc& desc, const u32 set_index = 0) override;
 	std::unique_ptr<rhiBuffer> create_buffer(const rhiBufferDesc& desc) override;
 	std::unique_ptr<rhiTexture> create_texture(const rhiTextureDesc& desc) override;
 	std::unique_ptr<rhiTexture> create_texture_from_path(std::string_view path, bool is_hdr = false, bool srgb = true) override;

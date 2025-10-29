@@ -49,6 +49,8 @@ void drawPass::render(renderShared* rs)
     begin(cmd_list);
     draw(cmd_list);
     end(cmd_list);
+
+    is_first_frame = false;
 }
 
 void drawPass::begin(rhiCommandList* cmd)

@@ -31,7 +31,7 @@ void translucentPass::initialize(const drawInitContext& context)
 	light_ring_buffer.resize(context.rs->frame_context->get_frame_size());
 	for (u32 i = 0; i < context.rs->frame_context->get_frame_size(); ++i)
 	{
-		context.rs->create_or_resize_buffer(light_ring_buffer[i], sizeof(translucentPass::lightCB), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device, 0);
+		context.rs->create_or_resize_buffer(light_ring_buffer[i], sizeof(translucentPass::lightCB), rhiBufferUsage::uniform | rhiBufferUsage::transfer_dst, rhiMem::auto_device);
 	}
 }
 

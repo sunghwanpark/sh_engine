@@ -1,4 +1,7 @@
 // gbuffer.ps.hlsl
+#if MESHLET
+#include "meshlet_pc.hlsli"
+#endif
 
 struct psIn
 {
@@ -19,6 +22,7 @@ struct psOut
 SamplerState samplers[] : register(s0, space2);
 Texture2D textures[] : register(t1, space2);
 
+#if !MESHLET
 struct materialPC
 {
     uint base_color_index;
@@ -34,6 +38,7 @@ struct materialPC
 }; // 32b
 [[vk::push_constant]]
 ConstantBuffer<materialPC> materials;
+#endif
 
 float2 encode_octa(float3 n)
 {
@@ -48,20 +53,25 @@ psOut main(psIn i)
 {
     psOut o;
 
+#if MESHLET
+    materialPC mat = pc.materials;
+#else
+    materialPC mat = materials;
+#endif
     // albedo
-    uint b_idx = NonUniformResourceIndex(materials.base_color_index);
-    uint b_s_idx = NonUniformResourceIndex(materials.base_sampler_index);
+    uint b_idx = NonUniformResourceIndex(mat.base_color_index);
+    uint b_s_idx = NonUniformResourceIndex(mat.base_sampler_index);
     float4 albedo = textures[b_idx].Sample(samplers[b_s_idx], i.uv);
 
-    if (materials.alpha_cutoff > 0.f && albedo.a < materials.alpha_cutoff)
+    if (mat.alpha_cutoff > 0.f && albedo.a < mat.alpha_cutoff)
         discard;
 
     // normal
     float3 nrm = normalize(i.n);
-    if (materials.norm_color_index > 0)
+    if (mat.norm_color_index > 0)
     {
-        uint n_idx = NonUniformResourceIndex(materials.norm_color_index);
-        uint n_s_idx = NonUniformResourceIndex(materials.norm_sampler_index);
+        uint n_idx = NonUniformResourceIndex(mat.norm_color_index);
+        uint n_s_idx = NonUniformResourceIndex(mat.norm_sampler_index);
         nrm = textures[n_idx].Sample(samplers[n_s_idx], i.uv).xyz * 2.f - 1.f;
         nrm = normalize(nrm);
     }
@@ -74,15 +84,15 @@ psOut main(psIn i)
     float3 n_w = normalize(t * nrm.x + b * nrm.y + n * nrm.z);
 
     // metalic / roughness
-    float roughness = materials.roughness_factor;
-    float metalic = materials.metalic_factor;
-    if (materials.mr_color_index > 0)
+    float roughness = mat.roughness_factor;
+    float metalic = mat.metalic_factor;
+    if (mat.mr_color_index > 0)
     {
-        uint mr_idx = NonUniformResourceIndex(materials.mr_color_index);
-        uint mr_s_idx = NonUniformResourceIndex(materials.mr_sampler_index);
+        uint mr_idx = NonUniformResourceIndex(mat.mr_color_index);
+        uint mr_s_idx = NonUniformResourceIndex(mat.mr_sampler_index);
         float2 mr = textures[mr_idx].Sample(samplers[mr_s_idx], i.uv).gb;
-        roughness = saturate(mr.x * materials.roughness_factor);
-        metalic = saturate(mr.y * materials.metalic_factor);
+        roughness = saturate(mr.x * mat.roughness_factor);
+        metalic = saturate(mr.y * mat.metalic_factor);
     }
 
     // write

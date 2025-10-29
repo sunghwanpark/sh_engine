@@ -2,6 +2,7 @@
 #include "pch.h"
 #include "rhi/rhiDefs.h"
 #include "rhi/rhiDescriptor.h"
+#include "meshlet/meshletDef.h"
 
 class rhiTexture;
 class rhiSampler;
@@ -87,7 +88,9 @@ struct alignas(16) materialPC
 
 using groupRecordArray = std::array<std::vector<groupRecord>, draw_type_count>;
 using indirectArray = std::array<std::vector<rhiDrawIndexedIndirect>, draw_type_count>;
+using drawMeshIndirectArray = std::array<std::vector<rhiDrawMeshShaderIndirect>, draw_type_count>;
 using instanceArray = std::array<std::vector<instanceData>, draw_type_count>;
+using meshletDrawParamArray = std::array<std::vector<meshlet::meshletDrawParams>, draw_type_count>;
 using drawTypeBuffers = std::array<std::shared_ptr<rhiBuffer>, draw_type_count>;
 
 class renderShared
@@ -99,8 +102,8 @@ public:
     void Initialize(rhiDeviceContext* context, rhiFrameContext* frame_context);
     void create_scene_color();
 
-    void create_or_resize_buffer(std::shared_ptr<rhiBuffer>& buffer, const u32 bytes, const rhiBufferUsage usage, const rhiMem mem, const u32 stride);
-    void create_or_resize_buffer(std::unique_ptr<rhiBuffer>& buffer, const u32 bytes, const rhiBufferUsage usage, const rhiMem mem, const u32 stride);
+    void create_or_resize_buffer(std::shared_ptr<rhiBuffer>& buffer, const u32 bytes, const rhiBufferUsage usage, const rhiMem mem);
+    void create_or_resize_buffer(std::unique_ptr<rhiBuffer>& buffer, const u32 bytes, const rhiBufferUsage usage, const rhiMem mem);
 
     void image_barrier(rhiTexture* texture, const rhiImageBarrierDescription& desc);
     void buffer_barrier(rhiBuffer* buffer, const rhiBufferBarrierDescription& desc);

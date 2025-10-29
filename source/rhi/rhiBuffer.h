@@ -6,7 +6,6 @@ struct rhiBufferDesc
     u64 size = 0;
     rhiBufferUsage usage;
     rhiMem memory = rhiMem::auto_device;
-    u32 stride = 0;
 };
 
 class rhiBuffer

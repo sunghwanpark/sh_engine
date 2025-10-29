@@ -272,7 +272,7 @@ void skyPass::precompile_dispatch()
         }
     };
 
-    rs->create_or_resize_buffer(irradiance_cb, sizeof(irradianceCB), rhiBufferUsage::transfer_dst | rhiBufferUsage::uniform, rhiMem::auto_device, sizeof(irradianceCB));
+    rs->create_or_resize_buffer(irradiance_cb, sizeof(irradianceCB), rhiBufferUsage::transfer_dst | rhiBufferUsage::uniform, rhiMem::auto_device);
     const irradianceCB cb = { irradiance_cube_resolution, 128 };
     rs->upload_to_device(irradiance_cb.get(), &cb, sizeof(irradianceCB));
     rs->buffer_barrier(irradiance_cb.get(), rhiBufferBarrierDescription{

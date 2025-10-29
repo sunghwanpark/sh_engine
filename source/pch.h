@@ -28,6 +28,7 @@
 #include "util/hash.h"
 #include <vk_mem_alloc.h>
 #include "stb_image.h"
+#include "meshoptimizer.h"
 
 #if defined(_DEBUG)
 #define ENABLE_AFTERMATH 0
@@ -44,7 +45,8 @@
 #include <DbgHelp.h>
 #pragma comment(lib, "DbgHelp.lib")
 
-#define DISABLE_OIT 0
+#define DISABLE_OIT 1
+#define MESHLET 1
 
 using namespace glm;
 
