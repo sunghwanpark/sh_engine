@@ -14,6 +14,7 @@
 - **PBR + IBL**
 - **Translucent Rendering**
 - **OIT**
+- **Mesh shading**
 
 ![Sponza Scene](docs/sponza.png)
 
